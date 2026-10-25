@@ -1,8 +1,8 @@
 class Planet {
     static DEFAULT_TIER_STATS = {
         1: { radius: 30, maxHP: 10, spawnInterval: 3.0, upgradeCost: 10 },
-        2: { radius: 30, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
-        3: { radius: 30, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
+        2: { radius: 30, maxHP: 20, spawnInterval: 1.5, upgradeCost: 20 },
+        3: { radius: 30, maxHP: 30, spawnInterval: 1.0, upgradeCost:  0 }
     };
 
     static CLAIM_COST = 5;          // ships needed to claim a neutral planet

@@ -128,11 +128,11 @@ class App {
         const f2 = FACTION_DATA[this.factionsList[this.p2FactionIndex]];
 
         const teamHome = document.querySelector('.team-home');
-        teamHome.style.borderLeftColor = f1.color;
+        teamHome.style.borderColor = f1.color;
         teamHome.querySelector('.team-header').style.color = f1.color;
 
         const teamAway = document.querySelector('.team-away');
-        teamAway.style.borderRightColor = f2.color;
+        teamAway.style.borderColor = f2.color;
         teamAway.querySelector('.team-header').style.color = f2.color;
     }
 

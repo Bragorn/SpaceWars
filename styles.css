@@ -12,9 +12,9 @@
 :root {
     --c-bg: #000000;
     --c-text: #ffffff;
-    --c-line: #3b4048;
+    --c-line: #ffffff;
     --c-line-hi: #ffffff;
-    --c-danger: #ff2a2a;
+    --c-danger: #ffffff;
 
     /* 3px spacing grid */
     --s1: 3px;
@@ -84,13 +84,13 @@ html, body {
 
 .hud-team-card.t1 {
     padding-left: var(--s2);
-    border-left: 3px solid var(--c-line);   /* JS recolors to faction */
+    border-left: 1px solid var(--c-line);   /* JS recolors to faction */
     text-align: left;
 }
 
 .hud-team-card.t2 {
     padding-right: var(--s2);
-    border-right: 3px solid var(--c-line);  /* JS recolors to faction */
+    border-right: 1px solid var(--c-line);  /* JS recolors to faction */
     text-align: right;
 }
 
@@ -140,7 +140,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 15px;
+    height: 16px;
     padding: 0 var(--s2);
     color: var(--c-text);
     background: var(--c-bg);
