@@ -131,6 +131,7 @@ class Ship {
         if (this.hp <= 0) {
             this.dead = true;
             gameManager.spawnExplosion(this.x, this.y);
+            gameManager.playSound('ship_explotion');
             gameManager.log('SHIP_DESTROYED', this.owner);
             if (attackerOwner && attackerOwner !== this.owner) {
                 gameManager.log('SHIP_KILLED', attackerOwner);
