@@ -68,6 +68,9 @@ class Ship {
         this.landingDuration = 4.0;
         this.orbitTimer = 0;
 
+        this.upgrading = false;   // true when landing on purpose to feed an upgrade
+        this.aborting = false;    // true when climbing back up because the planet is already ours
+
         this.x = sourcePlanet.x + Math.cos(spawnAngle) * (baseRadius + 2);
         this.y = sourcePlanet.y + Math.sin(spawnAngle) * (baseRadius + 2);
 
@@ -183,6 +186,7 @@ class Ship {
             case 'surface_launch': this.updateSurfaceLaunch(dt); break;
             case 'orbit':          this.updateOrbit(dt, gameManager); break;
             case 'landing':        this.updateLanding(dt, gameManager); break;
+            case 'abort':          this.updateAbort(dt, gameManager); break;
             default:               this.updateTransit(dt, gameManager); break; // launching, moving, insertion
         }
     }
@@ -273,6 +277,10 @@ class Ship {
             if (enemy) this.fireLaser(enemy, gameManager);
         }
 
+        if (!this.upgrading && planet.owner === this.owner) {
+            this.state = 'abort';
+            return;
+        }
         this.landingProgress += dt / this.landingDuration;
         const p = Math.min(1.0, this.landingProgress);
 
@@ -305,10 +313,89 @@ class Ship {
 
         this.thrustRatio = Math.sin(p * Math.PI) * 0.85;
 
+        if (this.aborting && p <= 0) {
+            this.aborting = false;
+            this.state = 'orbit';
+            this.orbitTimer = 0;
+            this.thrustRatio = 0;
+            return;
+        }
+
         if (p >= 1.0) {
             this.dead = true;
             planet.onShipTouchdown(this, gameManager);
         }
+    }
+
+    // 3b. Landing aborted (the planet is already ours): ease the engine on, climb back to orbit
+    updateAbort(dt, gameManager) {
+        const planet = this.targetPlanet;
+
+        if (this.shootCooldown <= 0) {
+            const enemy = this.findNearestEnemy(gameManager);
+            if (enemy) this.fireLaser(enemy, gameManager);
+        }
+
+        const CLIMB_SPEED = 12;     // fastest climb, px/s
+        const RAMP_TIME = 1.0;      // seconds for the engine to reach full power
+        const MAX_RADIAL_ACC = 14;  // px/s^2, how hard it can speed up or slow down vertically
+        const MAX_SIDE_ACC = 10;    // px/s^2, sideways build-up to orbital speed
+        const ABORT_TURN = 2.5;     // rad/s nose turn rate (lower = lazier turn)
+
+        const mu = this.gravConst;
+        const safeR = Math.max(1, this.targetOrbitRadius);
+        const vCirc = Math.sqrt(mu / safeR);
+
+        this.abortTime = (this.abortTime || 0) + dt;
+        const ramp = Math.min(1, this.abortTime / RAMP_TIME);
+
+        const dx = this.x - planet.x;
+        const dy = this.y - planet.y;
+        const r = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const ux = dx / r, uy = dy / r;     // outward
+        const tx = -uy, ty = ux;            // sideways
+
+        // Back at orbit height: settle into orbit
+        if (r >= safeR - 1) {
+            this.orbitAngle = Math.atan2(dy, dx);
+            this.orbitTimer = 0;
+            this.thrustRatio = 0;
+            this.abortTime = 0;
+            this.state = 'orbit';
+            return;
+        }
+
+        const vr = this.vx * ux + this.vy * uy;
+        const vt = this.vx * tx + this.vy * ty;
+        const g = mu / (r * r);
+
+        // Radial: chase a climb speed that eases to zero at orbit height
+        const vrWant = Math.min(CLIMB_SPEED, (safeR - r) * 1.5);
+        const aR = Math.max(-MAX_RADIAL_ACC, Math.min(MAX_RADIAL_ACC, (vrWant - vr) * 2)) * ramp;
+
+        // Sideways: build up to orbital speed
+        const vtWant = vCirc * this.orbitDir;
+        const aT = Math.max(-MAX_SIDE_ACC, Math.min(MAX_SIDE_ACC, (vtWant - vt) * 1.5)) * ramp;
+
+        // The engine cancels gravity plus the wanted radial acceleration (it can only push outward)
+        const thrustR = Math.max(0, aR + g);
+
+        this.vx += (ux * aR + tx * aT) * dt;
+        this.vy += (uy * aR + ty * aT) * dt;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        // Nose follows the thrust direction, slowly. Keep the old heading if there is no thrust.
+        const fx = ux * thrustR + tx * aT;
+        const fy = uy * thrustR + ty * aT;
+        if (fx * fx + fy * fy > 1) {
+            const want = Math.atan2(fy, fx);
+            let diff = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
+            const maxTurn = ABORT_TURN * dt;
+            this.heading += Math.abs(diff) <= maxTurn ? diff : Math.sign(diff) * maxTurn;
+        }
+
+        this.thrustRatio = Math.min(1, thrustR / (g + MAX_RADIAL_ACC)) * ramp;
     }
 
     // 4. Transit: departure burn, straight coast, capture burn

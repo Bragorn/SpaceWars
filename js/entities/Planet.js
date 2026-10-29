@@ -85,6 +85,7 @@ class Planet {
             ship.targetPlanet = this;
             ship.state = 'landing';
             ship.landingProgress = 0;
+            ship.upgrading = true;
         }
     }
 
