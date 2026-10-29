@@ -327,7 +327,8 @@ class Ship {
         }
     }
 
-    // 3b. Landing aborted (the planet is already ours): ease the engine on, climb back to orbit
+    // 3b. Landing aborted (the planet is already ours): plan one smooth path from the
+    //     ship's current position and velocity to a circular orbit, and fly it
     updateAbort(dt, gameManager) {
         const planet = this.targetPlanet;
 
@@ -336,66 +337,135 @@ class Ship {
             if (enemy) this.fireLaser(enemy, gameManager);
         }
 
-        const CLIMB_SPEED = 12;     // fastest climb, px/s
-        const RAMP_TIME = 1.0;      // seconds for the engine to reach full power
-        const MAX_RADIAL_ACC = 14;  // px/s^2, how hard it can speed up or slow down vertically
-        const MAX_SIDE_ACC = 10;    // px/s^2, sideways build-up to orbital speed
-        const ABORT_TURN = 2.5;     // rad/s nose turn rate (lower = lazier turn)
+        const MIN_T = 0.4;           // seconds, hardest possible arc
+        const SAFE_GAP = 1.0;        // px the arc must stay above the surface
+        const HOLD_THRUST = 12;      // below this much thrust the nose follows the velocity
+        const TURN = 4;             // rad/s nose turn rate
+        const LOCK_BLEND = 0.3;      // last share of the arc where the nose settles onto the orbit path
+        const THRUST_SCALE = 100;    // thrust that shows as a full plume
 
         const mu = this.gravConst;
         const safeR = Math.max(1, this.targetOrbitRadius);
+        const pRad = planet.radius;
+        const surfaceR = pRad + 1.5;
         const vCirc = Math.sqrt(mu / safeR);
+        const wEnd = (vCirc / safeR) * this.orbitDir;   // angular speed of the finished orbit
 
-        this.abortTime = (this.abortTime || 0) + dt;
-        const ramp = Math.min(1, this.abortTime / RAMP_TIME);
+        // ---------- Plan the arc once, from this ship's own state ----------
+        if (!this.abortActive) {
+            const dx = this.x - planet.x;
+            const dy = this.y - planet.y;
+            const r0 = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const ux = dx / r0, uy = dy / r0;
 
-        const dx = this.x - planet.x;
-        const dy = this.y - planet.y;
-        const r = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-        const ux = dx / r, uy = dy / r;     // outward
-        const tx = -uy, ty = ux;            // sideways
+            this.abortR0 = r0;
+            this.abortA0 = Math.atan2(dy, dx);
+            this.abortVr0 = this.vx * ux + this.vy * uy;          // climb speed (negative = sinking)
+            this.abortW0 = (-this.vx * uy + this.vy * ux) / r0;   // current angular speed
+            this.abortX = 0;
 
-        // Back at orbit height: settle into orbit
-        if (r >= safeR - 1) {
-            this.orbitAngle = Math.atan2(dy, dx);
-            this.orbitTimer = 0;
-            this.thrustRatio = 0;
-            this.abortTime = 0;
-            this.state = 'orbit';
-            return;
+            // Longest (smoothest) duration whose arc never dips into the planet
+            const fullDist = Math.max(1, safeR - pRad - 2.0);
+            const frac = Math.min(1, Math.max(0, safeR - r0) / fullDist);
+            const R0 = r0, V0 = this.abortVr0;
+            const lowest = (T) => {
+                let m = Infinity;
+                for (let i = 0; i <= 30; i++) {
+                    const x = i / 30;
+                    const h00 = 2 * x * x * x - 3 * x * x + 1;
+                    const h10 = x * x * x - 2 * x * x + x;
+                    const h01 = -2 * x * x * x + 3 * x * x;
+                    m = Math.min(m, h00 * R0 + h10 * T * V0 + h01 * safeR);
+                }
+                return m;
+            };
+            let T = MIN_T;
+            for (let c = 0.8 + 1.6 * frac; c >= MIN_T; c -= 0.1) {
+                if (lowest(c) >= surfaceR + SAFE_GAP) { T = c; break; }
+            }
+            this.abortT = T;
+            this.abortActive = true;
         }
 
-        const vr = this.vx * ux + this.vy * uy;
-        const vt = this.vx * tx + this.vy * ty;
+        // ---------- Fly the arc ----------
+        const T = this.abortT;
+        const R0 = this.abortR0, V0 = this.abortVr0, W0 = this.abortW0;
+        this.abortX = Math.min(1, this.abortX + dt / T);
+        const x = this.abortX;
+        const t = x * T;
+
+        // Height: cubic Hermite from (R0, V0) to (safeR, 0)
+        const h00 = 2 * x * x * x - 3 * x * x + 1;
+        const h10 = x * x * x - 2 * x * x + x;
+        const h01 = -2 * x * x * x + 3 * x * x;
+        const r = h00 * R0 + h10 * T * V0 + h01 * safeR;
+        const rd = ((6 * x * x - 6 * x) / T) * R0 + (3 * x * x - 4 * x + 1) * V0 + ((-6 * x * x + 6 * x) / T) * safeR;
+        const rdd = ((12 * x - 6) / (T * T)) * R0 + ((6 * x - 4) / T) * V0 + ((6 - 12 * x) / (T * T)) * safeR;
+
+        // Angle: angular speed eases from the ship's current value to orbital value
+        const dW = wEnd - W0;
+        const ang = this.abortA0 + W0 * t + dW * T * (x * x * x - 0.5 * x * x * x * x);
+        const thd = W0 + dW * (3 * x * x - 2 * x * x * x);
+        const thdd = dW * (6 * x - 6 * x * x) / T;
+
+        const cs = Math.cos(ang), sn = Math.sin(ang);
+        this.orbitAngle = ang;
+        this.x = planet.x + cs * r;
+        this.y = planet.y + sn * r;
+        this.vx = rd * cs - r * sn * thd;
+        this.vy = rd * sn + r * cs * thd;
+
+        // Hard floor: never below the surface
+        const ndx = this.x - planet.x;
+        const ndy = this.y - planet.y;
+        const nr = Math.max(0.001, Math.sqrt(ndx * ndx + ndy * ndy));
+        if (nr < surfaceR) {
+            this.x = planet.x + (ndx / nr) * surfaceR;
+            this.y = planet.y + (ndy / nr) * surfaceR;
+        }
+
+        // Thrust the path needs: path acceleration plus the gravity the engine has to cancel
         const g = mu / (r * r);
+        const tr = (rdd - r * thd * thd) + g;       // outward part
+        const tt = r * thdd + 2 * rd * thd;         // sideways part
+        const aimR = Math.max(0, tr);               // never aim the nose at the planet
+        const ax = cs * aimR - sn * tt;
+        const ay = sn * aimR + cs * tt;
+        const am = Math.sqrt(ax * ax + ay * ay);
 
-        // Radial: chase a climb speed that eases to zero at orbit height
-        const vrWant = Math.min(CLIMB_SPEED, (safeR - r) * 1.5);
-        const aR = Math.max(-MAX_RADIAL_ACC, Math.min(MAX_RADIAL_ACC, (vrWant - vr) * 2)) * ramp;
+        const sp = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const vdx = sp > 0.5 ? this.vx / sp : Math.cos(this.heading);
+        const vdy = sp > 0.5 ? this.vy / sp : Math.sin(this.heading);
+        const adx = am > 0.001 ? ax / am : vdx;
+        const ady = am > 0.001 ? ay / am : vdy;
 
-        // Sideways: build up to orbital speed
-        const vtWant = vCirc * this.orbitDir;
-        const aT = Math.max(-MAX_SIDE_ACC, Math.min(MAX_SIDE_ACC, (vtWant - vt) * 1.5)) * ramp;
+        const w = Math.min(1, am / HOLD_THRUST);
+        let wantX = adx * w + vdx * (1 - w);
+        let wantY = ady * w + vdy * (1 - w);
 
-        // The engine cancels gravity plus the wanted radial acceleration (it can only push outward)
-        const thrustR = Math.max(0, aR + g);
+        // Last part of the arc: nose settles fully onto the orbit path
+        let c = Math.max(0, Math.min(1, (x - (1 - LOCK_BLEND)) / LOCK_BLEND));
+        c = c * c * (3 - 2 * c);
+        wantX = wantX * (1 - c) + vdx * c;
+        wantY = wantY * (1 - c) + vdy * c;
 
-        this.vx += (ux * aR + tx * aT) * dt;
-        this.vy += (uy * aR + ty * aT) * dt;
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
-
-        // Nose follows the thrust direction, slowly. Keep the old heading if there is no thrust.
-        const fx = ux * thrustR + tx * aT;
-        const fy = uy * thrustR + ty * aT;
-        if (fx * fx + fy * fy > 1) {
-            const want = Math.atan2(fy, fx);
-            let diff = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
-            const maxTurn = ABORT_TURN * dt;
+        if (wantX * wantX + wantY * wantY > 0.0001) {
+            const want = Math.atan2(wantY, wantX);
+            const diff = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
+            const maxTurn = TURN * dt;
             this.heading += Math.abs(diff) <= maxTurn ? diff : Math.sign(diff) * maxTurn;
         }
 
-        this.thrustRatio = Math.min(1, thrustR / (g + MAX_RADIAL_ACC)) * ramp;
+        const thrustMag = Math.sqrt(aimR * aimR + tt * tt);
+        this.thrustRatio = Math.min(1, thrustMag / THRUST_SCALE) * (1 - c);
+
+        // Arrived: hand over to the normal orbit
+        if (x >= 1) {
+            this.abortActive = false;
+            this.thrustRatio = 0;
+            this.orbitTimer = 0;
+            this.state = 'orbit';
+        }
     }
 
     // 4. Transit: departure burn, straight coast, capture burn
