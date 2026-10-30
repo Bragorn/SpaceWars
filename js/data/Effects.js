@@ -11,6 +11,9 @@ const PLUME_MIN_THRUST = 0.05;     // below this, no plume is drawn
 
 const THRUSTER_COLOR = '#FF8C1A';  // orange for now
 
+const EXPLOSION_ATMOSPHERE = 8;   // px above the planet surface where clouds feel drag
+const EXPLOSION_ATMO_DRAG = 3.0;  // higher = clouds stop sooner inside that band
+
 // Explosion timeline: t = 0..1 of its life. Flash, then fire, then dark smoke, then gone.
 const EXPLOSION_SCALE = 1.0; // multiplies every radius below
 const EXPLOSION_FRAMES = [

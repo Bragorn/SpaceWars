@@ -191,9 +191,20 @@ class GameManager {
                 const d2 = Math.max(dx * dx + dy * dy, 1);
                 const d = Math.sqrt(d2);
                 if (d >= cfg.PHYSICS.SOI_RADIUS) continue;
+
+                if (d <= p.radius) {            // reached the surface: stop dead
+                    e.vx = 0; e.vy = 0;
+                    break;
+                }
                 const a = cfg.PHYSICS.GRAV_CONST / d2;
                 e.vx += (dx / d) * a * dt;
                 e.vy += (dy / d) * a * dt;
+
+                if (d < p.radius + EXPLOSION_ATMOSPHERE) {   // thin atmosphere band
+                    const drag = Math.exp(-EXPLOSION_ATMO_DRAG * dt);
+                    e.vx *= drag;
+                    e.vy *= drag;
+                }
             }
             e.x += e.vx * dt;
             e.y += e.vy * dt;
