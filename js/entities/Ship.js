@@ -164,18 +164,26 @@ class Ship {
         let nearestEnemy = null;
         let minDist = this.laserRange;
         const planets = gameManager.planets;
-        const ships = gameManager.ships;
+        const cell = window.GAME_CONFIG.SHIP_GRID_CELL;
+        const cx = Math.floor(this.x / cell);
+        const cy = Math.floor(this.y / cell);
 
-        for (let i = 0; i < ships.length; i++) {
-            const other = ships[i];
-            if (other === this || other.dead || other.owner === this.owner) continue;
+        for (let gx = cx - 1; gx <= cx + 1; gx++) {
+            for (let gy = cy - 1; gy <= cy + 1; gy++) {
+                const bucket = gameManager.shipGrid.get(gameManager.gridKey(gx, gy));
+                if (!bucket) continue;
+                for (let i = 0; i < bucket.length; i++) {
+                    const other = bucket[i];
+                    if (other === this || other.dead || other.owner === this.owner) continue;
 
-            const edx = other.x - this.x;
-            const edy = other.y - this.y;
-            const edist = Math.sqrt(edx * edx + edy * edy);
-            if (edist < minDist && hasLineOfSight(this, other, planets)) {
-                minDist = edist;
-                nearestEnemy = other;
+                    const edx = other.x - this.x;
+                    const edy = other.y - this.y;
+                    const edist = Math.sqrt(edx * edx + edy * edy);
+                    if (edist < minDist && hasLineOfSight(this, other, planets)) {
+                        minDist = edist;
+                        nearestEnemy = other;
+                    }
+                }
             }
         }
         return nearestEnemy;

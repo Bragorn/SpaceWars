@@ -4,7 +4,7 @@ class GameManager {
         this.ships = [];
         this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
-
+        this.shipGrid = new Map();
         this.telemetry = new TelemetryCollector();
         this.gameMode = 'PLAYER_VS_CPU';
 
@@ -74,6 +74,7 @@ class GameManager {
         this.ships = [];
         this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
+        this.shipGrid = new Map();
         this.gameTime = 0;
         this.accumulator = 0;
         this.telemetry.reset();
@@ -128,9 +129,15 @@ class GameManager {
         });
     }
 
+    gridKey(cx, cy) {
+        return (cx + 100) * 1024 + (cy + 100);
+    }
+
     refreshFrameStats() {
         const orbiting = new Map();
         const teamShips = {};
+        const grid = new Map();
+        const cell = window.GAME_CONFIG.SHIP_GRID_CELL;
         for (let i = 0; i < this.ships.length; i++) {
             const s = this.ships[i];
             if (s.dead) continue;
@@ -138,8 +145,13 @@ class GameManager {
             if (s.state === 'orbit' && s.targetPlanet) {
                 orbiting.set(s.targetPlanet, (orbiting.get(s.targetPlanet) || 0) + 1);
             }
+            const key = this.gridKey(Math.floor(s.x / cell), Math.floor(s.y / cell));
+            let bucket = grid.get(key);
+            if (!bucket) { bucket = []; grid.set(key, bucket); }
+            bucket.push(s);
         }
         this.frameStats = { orbiting, teamShips };
+        this.shipGrid = grid;
     }
 
     update(deltaTime) {
