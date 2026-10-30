@@ -122,6 +122,24 @@ class Ship {
         }
     }
 
+    // Eased turn: the turn speed ramps up and down instead of switching on and off
+    rotateEased(targetHeading, dt) {
+        const MAX_RATE = this.currentTurnRate;   // rad/s, top turn speed
+        const GAIN = 8;                          // higher = turns harder toward the target
+        const ACCEL = 50;                        // rad/s^2, how fast the turn speeds up / slows down
+
+        const diff = Math.atan2(Math.sin(targetHeading - this.heading), Math.cos(targetHeading - this.heading));
+        const want = Math.max(-MAX_RATE, Math.min(MAX_RATE, diff * GAIN));
+
+        let v = this.turnVel || 0;
+        const dv = want - v;
+        const maxDv = ACCEL * dt;
+        v += Math.abs(dv) <= maxDv ? dv : Math.sign(dv) * maxDv;
+
+        this.turnVel = v;
+        this.heading += v * dt;
+    }
+
     // ================= COMBAT =================
     takeDamage(amount, gameManager, attackerOwner = null) {
         if (this.dead) return;
@@ -247,7 +265,7 @@ class Ship {
         const enemy = this.findNearestEnemy(gameManager);
         if (enemy) {
             const aimHeading = Math.atan2(enemy.y - this.y, enemy.x - this.x);
-            this.rotateTowards(aimHeading, dt);
+            this.rotateEased(aimHeading, dt);
             const angleDiff = Math.abs(Math.atan2(Math.sin(aimHeading - this.heading), Math.cos(aimHeading - this.heading)));
             if (angleDiff < 0.4) {
                 this.fireLaser(enemy, gameManager);
@@ -255,7 +273,7 @@ class Ship {
             return;
         }
 
-        this.rotateTowards(Math.atan2(this.vy, this.vx), dt);
+        this.rotateEased(Math.atan2(this.vy, this.vx), dt);
 
         if (this.orbitTimer > 0.5) {
             const isUnclaimed = (planet.owner === 0);
