@@ -346,11 +346,8 @@ html, body {
     border: 1px solid var(--c-line);
 }
 
-.team-home { border-left: 3px solid var(--c-line); }   /* JS recolors to faction */
-.team-away { border-right: 3px solid var(--c-line); }  /* JS recolors to faction */
-
 .team-header {
-    color: var(--c-text);                              /* JS sets faction color inline */
+    color: var(--c-text); /* JS sets faction color inline */
     letter-spacing: 1px;
 }
 

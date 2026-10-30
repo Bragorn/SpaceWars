@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>OpenSpaceWars Batch Sim</title>
+<title>SpaceWars Batch Sim</title>
 <style>
     body { background: #000; color: #fff; font: 12px monospace; padding: 12px; }
     label { margin-right: 12px; }
@@ -20,7 +20,6 @@
     <label>Map <select id="map"></select></label>
     <label>Games per side per pairing <input id="reps" type="number" value="3" min="1" style="width:50px"></label>
     <label>Time cap (game sec) <input id="cap" type="number" value="600" min="60" style="width:60px"></label>
-    <label>AI <select id="ai"><option value="v2">v2 (current)</option><option value="legacy">legacy (old 60% rules)</option></select></label>
     <label><input id="inc" type="checkbox"> AI counts incoming ships (variant)</label>
     <button id="run">RUN</button>
     <button id="stop">STOP</button>
@@ -40,7 +39,6 @@
 <script src="js/systems/OrbitalMath.js"></script>
 <script src="js/systems/Controls.js"></script>
 <script src="js/systems/AIController.js"></script>
-<script src="js/systems/AIControllerLegacy.js"></script>
 <script src="js/render/Viewport.js"></script>
 <script src="js/render/Renderer.js"></script>
 <script src="js/core/AudioManager.js"></script>
@@ -69,7 +67,6 @@ const $ = (id) => document.getElementById(id);
     sel.value = '1';
 }
 
-let aiVersion = 'v2';
 let stopFlag = false;
 let running = false;
 let results = null;
@@ -100,10 +97,6 @@ async function playGame(slot, f1, f2, capSecs) {
     let winner = 0;
     gm.onGameOver = (t) => { winner = t; };
     gm.start(map, f1, f2, 'CPU_VS_CPU');
-    if (aiVersion === 'legacy') {            // swap in the old AI for both teams
-        gm.aiController1 = new AIControllerLegacy(gm, 1);
-        gm.aiController2 = new AIControllerLegacy(gm, 2);
-    }
 
     const maxSteps = Math.round(capSecs / cfg.SIM_STEP);
     let steps = 0;
@@ -249,13 +242,12 @@ async function run() {
     results = freshResults();
 
     AI_OPTS.countIncoming = $('inc').checked;
-    aiVersion = $('ai').value;
     const mapVal = Number($('map').value);
     const slots = mapVal === 0 ? registry.getAllMaps().map((m, i) => i + 1) : [mapVal];
     const reps = Math.max(1, Number($('reps').value) || 1);
     const cap = Math.max(60, Number($('cap').value) || 600);
     meta = `Map: ${mapVal === 0 ? 'all' : mapVal} | games per side per pairing: ${reps} | cap: ${cap}s` +
-           ` | AI: ${aiVersion} | countIncoming: ${AI_OPTS.countIncoming} | test mode: ${FACTION_TEST_MODE} (MOU spawn mult ${FACTION_DATA.MOUNTAINBORN.spawnIntervalMult}, VES ${FACTION_DATA.VESPID.spawnIntervalMult})`;
+           ` | countIncoming: ${AI_OPTS.countIncoming} | test mode: ${FACTION_TEST_MODE} (MOU spawn mult ${FACTION_DATA.MOUNTAINBORN.spawnIntervalMult}, VES ${FACTION_DATA.VESPID.spawnIntervalMult})`;
 
     const jobs = [];
     for (const slot of slots) {
