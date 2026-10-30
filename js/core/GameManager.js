@@ -102,8 +102,8 @@ class GameManager {
         return ship;
     }
 
-    spawnExplosion(x, y) {
-        this.explosions.push({ x, y, age: 0 });
+    spawnExplosion(x, y, vx, vy) {
+        this.explosions.push({ x, y, vx, vy, age: 0 });
     }
 
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
@@ -183,7 +183,21 @@ class GameManager {
         if (this.aiController1) this.aiController1.update(dt);
         if (this.aiController2) this.aiController2.update(dt);
 
-        for (const e of this.explosions) e.age += dt;
+        const cfg = window.GAME_CONFIG;
+        for (const e of this.explosions) {
+            e.age += dt;
+            for (const p of this.planets) {
+                const dx = p.x - e.x, dy = p.y - e.y;
+                const d2 = Math.max(dx * dx + dy * dy, 1);
+                const d = Math.sqrt(d2);
+                if (d >= cfg.PHYSICS.SOI_RADIUS) continue;
+                const a = cfg.PHYSICS.GRAV_CONST / d2;
+                e.vx += (dx / d) * a * dt;
+                e.vy += (dy / d) * a * dt;
+            }
+            e.x += e.vx * dt;
+            e.y += e.vy * dt;
+        }
         this.explosions = this.explosions.filter(e => e.age < window.GAME_CONFIG.EXPLOSION_SECONDS);
 
         this.ships = this.ships.filter(s => !s.dead);
