@@ -1,25 +1,33 @@
 // Ship hull: local points (x forward, y sideways), rotated by heading
 const HULL_POINTS = [[3.5, 0], [-2.5, -2.0], [-1.0, 0], [-2.5, 2.0]];
 
-const LASER_WIDTH = 1.2;
+const LASER_WIDTH = 2.0;
 const LASER_MUZZLE_OFFSET = 3.5;   // px in front of the ship center
 
-const PLUME_OFFSET = 3.0;          // px behind the ship center
-const PLUME_MIN_RADIUS = 0.8;
-const PLUME_RADIUS_GAIN = 1.0;     // added at full thrust
-const PLUME_MIN_THRUST = 0.05;     // below this, no plume is drawn
-
+// ---------- Thruster flame ----------
+const THRUSTER_OFFSET = 3.0;       // px behind the ship center
+const THRUSTER_MIN_RADIUS = 0.8;
+const THRUSTER_RADIUS_GAIN = 1.0;  // added at full thrust
+const THRUSTER_MIN_THRUST = 0.05;  // below this, no flame is drawn
 const THRUSTER_COLOR = '#FF8C1A';  // orange for now
 
-const EXPLOSION_ATMOSPHERE = 8;   // px above the planet surface where clouds feel drag
-const EXPLOSION_ATMO_DRAG = 3.0;  // higher = clouds stop sooner inside that band
+// ---------- Ship explosion ----------
+const EXPLOSION_ATMOSPHERE = 10.0; // px above the planet surface where clouds feel drag
+const EXPLOSION_ATMO_DRAG = 16.0;  // higher = clouds stop sooner inside that band
 
-// Explosion timeline: t = 0..1 of its life. Flash, then fire, then dark smoke, then gone.
-const EXPLOSION_SCALE = 1.0; // multiplies every radius below
-const EXPLOSION_FRAMES = [
-    { t: 0.00, r: 2.5, rgb: [255, 255, 255], a: 1.0 },  // white flash starts
-    { t: 0.06, r: 5.0, rgb: [255, 255, 255], a: 1.0 },  // peak flash
-    { t: 0.25, r: 5.5, rgb: [255, 140, 26],  a: 0.95 }, // orange fire (same as thrusters)
-    { t: 0.55, r: 6.0, rgb: [100, 45, 15],   a: 0.7 },  // dark brown
-    { t: 1.00, r: 6.5, rgb: [30, 20, 15],    a: 0.0 }   // smoke fades out
-];
+const FLASH_SECONDS = 0.2;        // how fast the white flash dies out
+const FLASH_RADIUS = 8.0;         // never shrinks, only fades
+
+const FIREBALL_START_RADIUS = 2.0; // size at the moment of the blast
+const FIREBALL_END_RADIUS = 8.0;
+const FIREBALL_ALPHA = 1.0;
+const FIREBALL_HOT_RGB = [255, 210, 70];   // yellow at first
+const FIREBALL_COOL_RGB = [255, 140, 26];  // settles to thruster orange
+const FIREBALL_BROWN_RGB = [100, 45, 15];  // burnt-out fire
+const FIREBALL_SMOKE_RGB = [30, 20, 15];   // near-black smoke at the end
+const FIREBALL_COOL_AT = 0.15;              // fraction of the life when yellow has settled to orange
+const FIREBALL_BROWN_AT = 0.6;             // fraction of the life when it has turned brown
+
+const SHARD_SPEED = 10.0;          // px/s outward push on top of the ship's own velocity
+const SHARD_LIFE = 2.0;            // seconds until the specks have faded out
+

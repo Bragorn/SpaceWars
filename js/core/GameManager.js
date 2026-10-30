@@ -102,8 +102,45 @@ class GameManager {
         return ship;
     }
 
-    spawnExplosion(x, y, vx, vy) {
-        this.explosions.push({ x, y, vx, vy, age: 0 });
+    spawnExplosion(ship) {
+        const c = Math.cos(ship.heading), n = Math.sin(ship.heading);
+        const shards = [];
+        for (let i = 0; i < HULL_POINTS.length; i++) {
+            const a = HULL_POINTS[i];
+            const b = HULL_POINTS[(i + 1) % HULL_POINTS.length];
+            const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+            const ox = mx * c - my * n, oy = mx * n + my * c;
+            const len = Math.sqrt(ox * ox + oy * oy) || 1;
+            const push = SHARD_SPEED * (0.6 + Math.random() * 0.8);
+            shards.push({
+                x: ship.x + ox, y: ship.y + oy,
+                vx: ship.vx + (ox / len) * push, vy: ship.vy + (oy / len) * push
+            });
+        }
+        this.explosions.push({ x: ship.x, y: ship.y, vx: ship.vx, vy: ship.vy, age: 0, color: ship.color, shards });
+    }
+
+    // Moves any loose object (cloud, shard): planet gravity inside SOIs, drag in the thin
+    // atmosphere band, stops dead on the surface
+    driftInSpace(o, dt) {
+        const cfg = window.GAME_CONFIG;
+        for (const p of this.planets) {
+            const dx = p.x - o.x, dy = p.y - o.y;
+            const d2 = Math.max(dx * dx + dy * dy, 1);
+            const d = Math.sqrt(d2);
+            if (d >= cfg.PHYSICS.SOI_RADIUS) continue;
+            if (d <= p.radius) { o.vx = 0; o.vy = 0; break; }
+            const a = cfg.PHYSICS.GRAV_CONST / d2;
+            o.vx += (dx / d) * a * dt;
+            o.vy += (dy / d) * a * dt;
+            if (d < p.radius + EXPLOSION_ATMOSPHERE) {
+                const drag = Math.exp(-EXPLOSION_ATMO_DRAG * dt);
+                o.vx *= drag;
+                o.vy *= drag;
+            }
+        }
+        o.x += o.vx * dt;
+        o.y += o.vy * dt;
     }
 
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
@@ -183,33 +220,15 @@ class GameManager {
         if (this.aiController1) this.aiController1.update(dt);
         if (this.aiController2) this.aiController2.update(dt);
 
-        const cfg = window.GAME_CONFIG;
         for (const e of this.explosions) {
             e.age += dt;
-            for (const p of this.planets) {
-                const dx = p.x - e.x, dy = p.y - e.y;
-                const d2 = Math.max(dx * dx + dy * dy, 1);
-                const d = Math.sqrt(d2);
-                if (d >= cfg.PHYSICS.SOI_RADIUS) continue;
-
-                if (d <= p.radius) {            // reached the surface: stop dead
-                    e.vx = 0; e.vy = 0;
-                    break;
-                }
-                const a = cfg.PHYSICS.GRAV_CONST / d2;
-                e.vx += (dx / d) * a * dt;
-                e.vy += (dy / d) * a * dt;
-
-                if (d < p.radius + EXPLOSION_ATMOSPHERE) {   // thin atmosphere band
-                    const drag = Math.exp(-EXPLOSION_ATMO_DRAG * dt);
-                    e.vx *= drag;
-                    e.vy *= drag;
-                }
+            this.driftInSpace(e, dt);
+            if (e.age < SHARD_LIFE) {
+                for (const s of e.shards) this.driftInSpace(s, dt);
             }
-            e.x += e.vx * dt;
-            e.y += e.vy * dt;
         }
-        this.explosions = this.explosions.filter(e => e.age < window.GAME_CONFIG.EXPLOSION_SECONDS);
+        this.explosions = this.explosions.filter(e =>
+            e.age < Math.max(window.GAME_CONFIG.EXPLOSION_SECONDS, SHARD_LIFE));
 
         this.ships = this.ships.filter(s => !s.dead);
         this.refreshFrameStats();

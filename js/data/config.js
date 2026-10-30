@@ -8,7 +8,7 @@ const GAME_CONFIG = {
     MAX_STEPS_PER_FRAME: 8,
     SHIP_GRID_CELL: 30,                    // must be at least the laser range (25)
 
-    EXPLOSION_SECONDS: 1.5,
+    EXPLOSION_SECONDS: 2.0,
     DEATH_TOLL_PER_SHIP: 1000,
 
     WORLD_WIDTH: 1280,

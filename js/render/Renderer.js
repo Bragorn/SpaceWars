@@ -163,10 +163,10 @@ class Renderer {
         for (const list of byColor.values()) {
             for (let i = 0; i < list.length; i++) {
                 const s = list[i];
-                if (s.thrustRatio <= PLUME_MIN_THRUST) continue;
-                const px = s.x - Math.cos(s.heading) * PLUME_OFFSET;
-                const py = s.y - Math.sin(s.heading) * PLUME_OFFSET;
-                const r = PLUME_MIN_RADIUS + s.thrustRatio * PLUME_RADIUS_GAIN;
+                if (s.thrustRatio <= THRUSTER_MIN_THRUST) continue;
+                const px = s.x - Math.cos(s.heading) * THRUSTER_OFFSET;
+                const py = s.y - Math.sin(s.heading) * THRUSTER_OFFSET;
+                const r = THRUSTER_MIN_RADIUS + s.thrustRatio * THRUSTER_RADIUS_GAIN;
                 ctx.moveTo(px + r, py);
                 ctx.arc(px, py, r, 0, Math.PI * 2);
                 anyPlume = true;
@@ -185,25 +185,47 @@ class Renderer {
         if (list.length === 0) return;
         const ctx = this.ctx;
         const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
-        const F = EXPLOSION_FRAMES;
 
+        // Debris: single-pixel specks in the ship's color
+        for (const e of list) {
+            if (e.age >= SHARD_LIFE) continue;
+            ctx.globalAlpha = 1 - e.age / SHARD_LIFE;
+            ctx.fillStyle = e.color;
+            for (const s of e.shards) ctx.fillRect(s.x - 0.5, s.y - 0.5, 1, 1);
+        }
+
+        // Plume: runs from the first frame, grows fast then eases out, fades as it goes
         for (const e of list) {
             const t = Math.min(1, e.age / dur);
-            let i = 1;
-            while (i < F.length - 1 && t > F[i].t) i++;
-            const a = F[i - 1], b = F[i];
-            const k = (t - a.t) / (b.t - a.t);
-            const mix = (x, y) => x + (y - x) * k;
+            const grow = 1 - (1 - t) * (1 - t) * (1 - t);
+            const r = FIREBALL_START_RADIUS + (FIREBALL_END_RADIUS - FIREBALL_START_RADIUS) * grow;
+            
+            // yellow -> orange -> brown -> smoke
+            let from, to, k;
+            if (t < FIREBALL_COOL_AT) {
+                from = FIREBALL_HOT_RGB; to = FIREBALL_COOL_RGB; k = t / FIREBALL_COOL_AT;
+            } else if (t < FIREBALL_BROWN_AT) {
+                from = FIREBALL_COOL_RGB; to = FIREBALL_BROWN_RGB; k = (t - FIREBALL_COOL_AT) / (FIREBALL_BROWN_AT - FIREBALL_COOL_AT);
+            } else {
+                from = FIREBALL_BROWN_RGB; to = FIREBALL_SMOKE_RGB; k = (t - FIREBALL_BROWN_AT) / (1 - FIREBALL_BROWN_AT);
+            }
+            const c = (i) => Math.round(from[i] + (to[i] - from[i]) * k);
 
-            const r = mix(a.r, b.r) * EXPLOSION_SCALE;
-            const red = Math.round(mix(a.rgb[0], b.rgb[0]));
-            const green = Math.round(mix(a.rgb[1], b.rgb[1]));
-            const blue = Math.round(mix(a.rgb[2], b.rgb[2]));
-
-            ctx.globalAlpha = mix(a.a, b.a);
-            ctx.fillStyle = `rgb(${red},${green},${blue})`;
+            ctx.globalAlpha = FIREBALL_ALPHA * (1 - t * t);
+            ctx.fillStyle = `rgb(${c(0)},${c(1)},${c(2)})`;            
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Flash: drawn on top, fixed size, only fades (fast), so the fire shows through as it goes
+        ctx.fillStyle = '#FFFFFF';
+        for (const e of list) {
+            if (e.age >= FLASH_SECONDS) continue;
+            const f = 1 - e.age / FLASH_SECONDS;
+            ctx.globalAlpha = f * f;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, FLASH_RADIUS, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.globalAlpha = 1;
