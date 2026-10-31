@@ -66,10 +66,11 @@ class Ship {
         this.launchDuration = 2.0;
         this.landingProgress = 0;
         this.landingDuration = 4.0;
+        this.landCheckTimer = 0;
+        this.landCheckInterval = 0.5;   // seconds between "does this planet still need landers?" checks
         this.orbitTimer = 0;
 
         this.upgrading = false;   // true when landing on purpose to feed an upgrade
-        this.aborting = false;    // true when climbing back up because the planet is already ours
 
         this.x = sourcePlanet.x + Math.cos(spawnAngle) * (baseRadius + 2);
         this.y = sourcePlanet.y + Math.sin(spawnAngle) * (baseRadius + 2);
@@ -138,6 +139,29 @@ class Ship {
 
         this.turnVel = v;
         this.heading += v * dt;
+    }
+
+    // How many more ships this planet needs from my side, after counting my ships already landing
+    landingNeed(planet, gameManager) {
+        if (planet.owner === this.owner) return 0;
+        let need;
+        if (planet.owner === 0) {
+            const progress = Math.floor(planet.upgradeProgress);
+            if (planet.claimOwner === 0) need = planet.claimCost;
+            else if (planet.claimOwner === this.owner) need = planet.claimCost - progress;
+            else need = planet.claimCost + progress;
+        } else {
+            // The planet heals while ships descend, so aim above its current HP
+            const regenDuringLanding = Math.ceil(this.landingDuration / Planet.REGEN_INTERVAL);
+            need = Math.ceil(planet.hp) + regenDuringLanding;
+        }
+        return need - gameManager.landersFor(planet, this.owner);
+    }
+
+    startLanding(planet, gameManager) {
+        this.state = 'landing';
+        this.landingProgress = 0;
+        gameManager.addLander(planet, this.owner);
     }
 
     // ================= COMBAT =================
@@ -212,7 +236,6 @@ class Ship {
             case 'surface_launch': this.updateSurfaceLaunch(dt); break;
             case 'orbit':          this.updateOrbit(dt, gameManager); break;
             case 'landing':        this.updateLanding(dt, gameManager); break;
-            case 'abort':          this.updateAbort(dt, gameManager); break;
             default:               this.updateTransit(dt, gameManager); break; // launching, moving, insertion
         }
     }
@@ -283,14 +306,11 @@ class Ship {
 
         this.rotateEased(Math.atan2(this.vy, this.vx), dt);
 
-        if (this.orbitTimer > 0.5) {
-            const isUnclaimed = (planet.owner === 0);
-            const isEnemyPlanet = (planet.owner !== 0 && planet.owner !== this.owner);
-
-            if (isUnclaimed || isEnemyPlanet) {
-                this.state = 'landing';
-                this.landingProgress = 0;
-            }
+        // Re-check now and then: a lander may have been shot down, so the planet needs more
+        this.landCheckTimer -= dt;
+        if (this.landCheckTimer <= 0) {
+            this.landCheckTimer = this.landCheckInterval;
+            if (this.landingNeed(planet, gameManager) > 0) this.startLanding(planet, gameManager);
         }
     }
 
@@ -303,10 +323,6 @@ class Ship {
             if (enemy) this.fireLaser(enemy, gameManager);
         }
 
-        if (!this.upgrading && planet.owner === this.owner) {
-            this.state = 'abort';
-            return;
-        }
         this.landingProgress += dt / this.landingDuration;
         const p = Math.min(1.0, this.landingProgress);
 
@@ -339,158 +355,9 @@ class Ship {
 
         this.thrustRatio = Math.sin(p * Math.PI) * 0.85;
 
-        if (this.aborting && p <= 0) {
-            this.aborting = false;
-            this.state = 'orbit';
-            this.orbitTimer = 0;
-            this.thrustRatio = 0;
-            return;
-        }
-
         if (p >= 1.0) {
             this.dead = true;
             planet.onShipTouchdown(this, gameManager);
-        }
-    }
-
-    // 3b. Landing aborted (the planet is already ours): plan one smooth path from the
-    //     ship's current position and velocity to a circular orbit, and fly it
-    updateAbort(dt, gameManager) {
-        const planet = this.targetPlanet;
-
-        if (this.shootCooldown <= 0) {
-            const enemy = this.findNearestEnemy(gameManager);
-            if (enemy) this.fireLaser(enemy, gameManager);
-        }
-
-        const MIN_T = 0.4;           // seconds, hardest possible arc
-        const SAFE_GAP = 1.0;        // px the arc must stay above the surface
-        const HOLD_THRUST = 12;      // below this much thrust the nose follows the velocity
-        const TURN = 4;             // rad/s nose turn rate
-        const LOCK_BLEND = 0.3;      // last share of the arc where the nose settles onto the orbit path
-        const THRUST_SCALE = 100;    // thrust that shows as a full plume
-
-        const mu = this.gravConst;
-        const safeR = Math.max(1, this.targetOrbitRadius);
-        const pRad = planet.radius;
-        const surfaceR = pRad + 1.5;
-        const vCirc = Math.sqrt(mu / safeR);
-        const wEnd = (vCirc / safeR) * this.orbitDir;   // angular speed of the finished orbit
-
-        // ---------- Plan the arc once, from this ship's own state ----------
-        if (!this.abortActive) {
-            const dx = this.x - planet.x;
-            const dy = this.y - planet.y;
-            const r0 = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-            const ux = dx / r0, uy = dy / r0;
-
-            this.abortR0 = r0;
-            this.abortA0 = Math.atan2(dy, dx);
-            this.abortVr0 = this.vx * ux + this.vy * uy;          // climb speed (negative = sinking)
-            this.abortW0 = (-this.vx * uy + this.vy * ux) / r0;   // current angular speed
-            this.abortX = 0;
-
-            // Longest (smoothest) duration whose arc never dips into the planet
-            const fullDist = Math.max(1, safeR - pRad - 2.0);
-            const frac = Math.min(1, Math.max(0, safeR - r0) / fullDist);
-            const R0 = r0, V0 = this.abortVr0;
-            const lowest = (T) => {
-                let m = Infinity;
-                for (let i = 0; i <= 30; i++) {
-                    const x = i / 30;
-                    const h00 = 2 * x * x * x - 3 * x * x + 1;
-                    const h10 = x * x * x - 2 * x * x + x;
-                    const h01 = -2 * x * x * x + 3 * x * x;
-                    m = Math.min(m, h00 * R0 + h10 * T * V0 + h01 * safeR);
-                }
-                return m;
-            };
-            let T = MIN_T;
-            for (let c = 0.8 + 1.6 * frac; c >= MIN_T; c -= 0.1) {
-                if (lowest(c) >= surfaceR + SAFE_GAP) { T = c; break; }
-            }
-            this.abortT = T;
-            this.abortActive = true;
-        }
-
-        // ---------- Fly the arc ----------
-        const T = this.abortT;
-        const R0 = this.abortR0, V0 = this.abortVr0, W0 = this.abortW0;
-        this.abortX = Math.min(1, this.abortX + dt / T);
-        const x = this.abortX;
-        const t = x * T;
-
-        // Height: cubic Hermite from (R0, V0) to (safeR, 0)
-        const h00 = 2 * x * x * x - 3 * x * x + 1;
-        const h10 = x * x * x - 2 * x * x + x;
-        const h01 = -2 * x * x * x + 3 * x * x;
-        const r = h00 * R0 + h10 * T * V0 + h01 * safeR;
-        const rd = ((6 * x * x - 6 * x) / T) * R0 + (3 * x * x - 4 * x + 1) * V0 + ((-6 * x * x + 6 * x) / T) * safeR;
-        const rdd = ((12 * x - 6) / (T * T)) * R0 + ((6 * x - 4) / T) * V0 + ((6 - 12 * x) / (T * T)) * safeR;
-
-        // Angle: angular speed eases from the ship's current value to orbital value
-        const dW = wEnd - W0;
-        const ang = this.abortA0 + W0 * t + dW * T * (x * x * x - 0.5 * x * x * x * x);
-        const thd = W0 + dW * (3 * x * x - 2 * x * x * x);
-        const thdd = dW * (6 * x - 6 * x * x) / T;
-
-        const cs = Math.cos(ang), sn = Math.sin(ang);
-        this.orbitAngle = ang;
-        this.x = planet.x + cs * r;
-        this.y = planet.y + sn * r;
-        this.vx = rd * cs - r * sn * thd;
-        this.vy = rd * sn + r * cs * thd;
-
-        // Hard floor: never below the surface
-        const ndx = this.x - planet.x;
-        const ndy = this.y - planet.y;
-        const nr = Math.max(0.001, Math.sqrt(ndx * ndx + ndy * ndy));
-        if (nr < surfaceR) {
-            this.x = planet.x + (ndx / nr) * surfaceR;
-            this.y = planet.y + (ndy / nr) * surfaceR;
-        }
-
-        // Thrust the path needs: path acceleration plus the gravity the engine has to cancel
-        const g = mu / (r * r);
-        const tr = (rdd - r * thd * thd) + g;       // outward part
-        const tt = r * thdd + 2 * rd * thd;         // sideways part
-        const aimR = Math.max(0, tr);               // never aim the nose at the planet
-        const ax = cs * aimR - sn * tt;
-        const ay = sn * aimR + cs * tt;
-        const am = Math.sqrt(ax * ax + ay * ay);
-
-        const sp = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const vdx = sp > 0.5 ? this.vx / sp : Math.cos(this.heading);
-        const vdy = sp > 0.5 ? this.vy / sp : Math.sin(this.heading);
-        const adx = am > 0.001 ? ax / am : vdx;
-        const ady = am > 0.001 ? ay / am : vdy;
-
-        const w = Math.min(1, am / HOLD_THRUST);
-        let wantX = adx * w + vdx * (1 - w);
-        let wantY = ady * w + vdy * (1 - w);
-
-        // Last part of the arc: nose settles fully onto the orbit path
-        let c = Math.max(0, Math.min(1, (x - (1 - LOCK_BLEND)) / LOCK_BLEND));
-        c = c * c * (3 - 2 * c);
-        wantX = wantX * (1 - c) + vdx * c;
-        wantY = wantY * (1 - c) + vdy * c;
-
-        if (wantX * wantX + wantY * wantY > 0.0001) {
-            const want = Math.atan2(wantY, wantX);
-            const diff = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
-            const maxTurn = TURN * dt;
-            this.heading += Math.abs(diff) <= maxTurn ? diff : Math.sign(diff) * maxTurn;
-        }
-
-        const thrustMag = Math.sqrt(aimR * aimR + tt * tt);
-        this.thrustRatio = Math.min(1, thrustMag / THRUST_SCALE) * (1 - c);
-
-        // Arrived: hand over to the normal orbit
-        if (x >= 1) {
-            this.abortActive = false;
-            this.thrustRatio = 0;
-            this.orbitTimer = 0;
-            this.state = 'orbit';
         }
     }
 
@@ -536,7 +403,7 @@ class Ship {
         } else if (this.state === 'moving') {
             this.stepMoving(dt, tpl, target);
         } else if (this.state === 'insertion') {
-            this.stepInsertion(dt, force, target, mu);
+            this.stepInsertion(dt, force, target, mu, gameManager);
         }
 
         this.integrateMotion(dt, force);
@@ -627,7 +494,7 @@ class Ship {
     }
 
     // Capture burn: the exit burn run backward, ending in a circular orbit
-    stepInsertion(dt, force, target, mu) {
+    stepInsertion(dt, force, target, mu, gameManager) {
         const dxPos = this.x - target.x;
         const dyPos = this.y - target.y;
         const rr = Math.max(1, Math.sqrt(dxPos * dxPos + dyPos * dyPos));
@@ -648,10 +515,10 @@ class Ship {
             this.orbitAngle = Math.atan2(dyPos, dxPos);
             this.orbitTimer = 0;
 
-            // Neutral or enemy planet: land straight away (no flip). Friendly: orbit.
-            if (target.owner !== this.owner) {
-                this.state = 'landing';
-                this.landingProgress = 0;
+            // Decide once, now: land only if the planet still needs ships beyond those already landing
+            this.landCheckTimer = Math.random() * this.landCheckInterval;
+            if (this.landingNeed(target, gameManager) > 0) {
+                this.startLanding(target, gameManager);
             } else {
                 this.state = 'orbit';
             }

@@ -3,7 +3,7 @@ class GameManager {
         this.planets = [];
         this.ships = [];
         this.explosions = [];
-        this.frameStats = { orbiting: new Map(), teamShips: {} };
+        this.frameStats = { orbiting: new Map(), teamShips: {}, landing: new Map() };
         this.shipGrid = new Map();
         this.telemetry = new TelemetryCollector();
         this.gameMode = 'PLAYER_VS_CPU';
@@ -73,7 +73,7 @@ class GameManager {
         this.planets = [];
         this.ships = [];
         this.explosions = [];
-        this.frameStats = { orbiting: new Map(), teamShips: {} };
+        this.frameStats = { orbiting: new Map(), teamShips: {}, landing: new Map() };
         this.shipGrid = new Map();
         this.gameTime = 0;
         this.accumulator = 0;
@@ -172,6 +172,7 @@ class GameManager {
 
     refreshFrameStats() {
         const orbiting = new Map();
+        const landing = new Map();   // planet -> { owner: ships landing to claim/attack it }
         const teamShips = {};
         const grid = new Map();
         const cell = window.GAME_CONFIG.SHIP_GRID_CELL;
@@ -182,13 +183,31 @@ class GameManager {
             if (s.state === 'orbit' && s.targetPlanet) {
                 orbiting.set(s.targetPlanet, (orbiting.get(s.targetPlanet) || 0) + 1);
             }
+            if (s.state === 'landing' && !s.upgrading && s.targetPlanet) {
+                let m = landing.get(s.targetPlanet);
+                if (!m) { m = {}; landing.set(s.targetPlanet, m); }
+                m[s.owner] = (m[s.owner] || 0) + 1;
+            }
             const key = this.gridKey(Math.floor(s.x / cell), Math.floor(s.y / cell));
             let bucket = grid.get(key);
             if (!bucket) { bucket = []; grid.set(key, bucket); }
             bucket.push(s);
         }
-        this.frameStats = { orbiting, teamShips };
+        this.frameStats = { orbiting, teamShips, landing };
         this.shipGrid = grid;
+    }
+
+    // Ships of one owner currently landing on a planet (upgrade landers not counted)
+    landersFor(planet, owner) {
+        const m = this.frameStats.landing.get(planet);
+        return m ? (m[owner] || 0) : 0;
+    }
+
+    // Called the moment a ship commits to landing, so ships deciding later this step see it
+    addLander(planet, owner) {
+        let m = this.frameStats.landing.get(planet);
+        if (!m) { m = {}; this.frameStats.landing.set(planet, m); }
+        m[owner] = (m[owner] || 0) + 1;
     }
 
     update(deltaTime) {
