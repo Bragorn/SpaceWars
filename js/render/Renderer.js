@@ -254,8 +254,14 @@ class Renderer {
             }
             const c = (i) => Math.round(from[i] + (to[i] - from[i]) * k);
 
+            const rgb = `${c(0)},${c(1)},${c(2)}`;
+            const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r);
+            g.addColorStop(0, `rgba(${rgb},1)`);
+            g.addColorStop(FIREBALL_SOFT_CORE, `rgba(${rgb},0.75)`);
+            g.addColorStop(1, `rgba(${rgb},0)`);
+
             ctx.globalAlpha = FIREBALL_ALPHA * (1 - t * t);
-            ctx.fillStyle = `rgb(${c(0)},${c(1)},${c(2)})`;            
+            ctx.fillStyle = g;
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
             ctx.fill();
@@ -266,7 +272,12 @@ class Renderer {
         for (const e of list) {
             if (e.age >= FLASH_SECONDS) continue;
             const f = 1 - e.age / FLASH_SECONDS;
+            const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, FLASH_RADIUS);
+            g.addColorStop(0, 'rgba(255,255,255,1)');
+            g.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+            g.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.globalAlpha = f * f;
+            ctx.fillStyle = g;
             ctx.beginPath();
             ctx.arc(e.x, e.y, FLASH_RADIUS, 0, Math.PI * 2);
             ctx.fill();

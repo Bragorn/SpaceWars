@@ -24,31 +24,32 @@ const EXPLOSION_ATMO_DRAG = 16.0;  // higher = clouds stop sooner inside that ba
 
 // ---------- Explosion Flash ----------
 const FLASH_SECONDS = 0.2;        // how fast the white flash dies out
-const FLASH_RADIUS = 8.0;         // never shrinks, only fades
+const FLASH_RADIUS = 12.0;         // never shrinks, only fades
 
 // ---------- Fireball & Fade ----------
 const FIREBALL_START_RADIUS = 2.0; // size at the moment of the blast
-const FIREBALL_END_RADIUS = 8.0;
+const FIREBALL_END_RADIUS = 12.0;
+const FIREBALL_SOFT_CORE = 0.6;    // how far out the solid center reaches (0 = all soft, 1 = hard edge)
 const FIREBALL_ALPHA = 1.0;
 const FIREBALL_HOT_RGB = [255, 210, 70];   // yellow at first
 const FIREBALL_COOL_RGB = [255, 140, 26];  // settles to thruster orange
 const FIREBALL_BROWN_RGB = [100, 45, 15];  // burnt-out fire
 const FIREBALL_SMOKE_RGB = [30, 20, 15];   // near-black smoke at the end
-const FIREBALL_COOL_AT = 0.15;              // fraction of the life when yellow has settled to orange
+const FIREBALL_COOL_AT = 0.15;             // fraction of the life when yellow has settled to orange
 const FIREBALL_BROWN_AT = 0.6;             // fraction of the life when it has turned brown
 
 // ---------- Ship debris ----------
-const DEBRIS_MIN = 6;                // chunks per explosion
-const DEBRIS_MAX = 10;
-const DEBRIS_SPEED = 16.0;           // px/s outward push on top of the ship's own velocity
+const DEBRIS_MIN = 4;                // chunks per explosion
+const DEBRIS_MAX = 8;
+const DEBRIS_SPEED = 8.0;            // px/s outward push on top of the ship's own velocity
 const DEBRIS_SPEED_SPREAD = 0.6;     // random +/- share of that speed
 const DEBRIS_LIFE = 2.0;             // seconds until the chunks have faded out
 const DEBRIS_CELL = 1;               // world px per chunk cell
 const DEBRIS_MAX_CELLS = 7;          // biggest chunk (inside a 3x3 grid, never all 9)
 const DEBRIS_SHAPE_POOL = 24;        // random shapes made once at startup
 const DEBRIS_GLINT_RATE_MIN = 10;    // flicker speed range
-const DEBRIS_GLINT_RATE_MAX = 22;
-const DEBRIS_GLINT_LEVEL = 0.85;     // higher = rarer glints (0.85 is roughly one moment in six)
+const DEBRIS_GLINT_RATE_MAX = 14;
+const DEBRIS_GLINT_LEVEL = 0.99;     // higher = rarer glints (0.85 is roughly one moment in six)
 const DEBRIS_GLINT_COLOR = '#FFFFFF';
 
 // Random jagged chunk shapes, made once. Each is a list of [x, y] cell offsets around the chunk center.
