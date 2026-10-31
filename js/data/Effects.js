@@ -4,6 +4,12 @@ const HULL_POINTS = [[3.5, 0], [-2.5, -2.0], [-1.0, 0], [-2.5, 2.0]];
 const LASER_WIDTH = 2.0;
 const LASER_MUZZLE_OFFSET = 3.5;   // px in front of the ship center
 
+// ---------- Neutral claim bar (one piece per ship needed) ----------
+const CLAIM_BAR_PIECE_W = 7;      // screen px, like the label text
+const CLAIM_BAR_PIECE_H = 5;
+const CLAIM_BAR_GAP = 2;
+const CLAIM_BAR_OUTLINE = '#000000';
+
 // ---------- Thruster flame ----------
 const THRUSTER_OFFSET = 3.0;       // px behind the ship center
 const THRUSTER_MIN_RADIUS = 0.8;

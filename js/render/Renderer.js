@@ -14,7 +14,7 @@ class Renderer {
         this.drawPlanets(gameManager);
         this.drawShips(gameManager.ships, gameManager);
         this.drawExplosions(gameManager);
-        this.drawPlanetLabels(gameManager);
+        this.drawAllPlanetInfo(gameManager);
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
@@ -31,34 +31,35 @@ class Renderer {
         }
     }
 
-    // Labels are drawn in screen space at a fixed size so the text stays crisp at any zoom
-    drawPlanetLabels(gameManager) {
+    // Planet info is drawn in screen space at a fixed size so the text stays crisp at any zoom
+    drawAllPlanetInfo(gameManager) {
         const dpr = Viewport.dpr;
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         for (const planet of gameManager.planets) {
             const p = Viewport.toScreen(planet.x, planet.y);
-            this.drawPlanetLabel(planet, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
+            this.drawPlanetInfo(planet, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
         }
     }
 
-    drawPlanetLabel(planet, gameManager, sx, sy) {
+    // One planet: the claim bar if neutral, the text lines if owned
+    drawPlanetInfo(planet, gameManager, sx, sy) {
+        if (planet.owner === 0) {
+            this.drawClaimBar(planet, gameManager, sx, sy);
+            return;
+        }
+
         const ctx = this.ctx;
         const maxTier = planet.getMaxTier();
 
         const lines = [
             `Ships: ${planet.getOrbitingShipsCount(gameManager)}`,
-            `Lvl: ${planet.level}/${maxTier}`
+            `Lvl: ${planet.level}/${maxTier}`,
+            `HP: ${Math.ceil(planet.hp)}/${planet.maxHp}`
         ];
-
-        if (planet.owner !== 0) {
-            lines.push(`HP: ${Math.ceil(planet.hp)}/${planet.maxHp}`);
-            const upgCost = planet.getUpgradeCost();
-            if (planet.level < maxTier && upgCost > 0) {
-                lines.push(`Upg: ${Math.floor(planet.upgradeProgress)}/${upgCost}`);
-            }
-        } else {
-            lines.push(`Cap: ${Math.floor(planet.upgradeProgress)}/${planet.claimCost}`);
+        const upgCost = planet.getUpgradeCost();
+        if (planet.level < maxTier && upgCost > 0) {
+            lines.push(`Upg: ${Math.floor(planet.upgradeProgress)}/${upgCost}`);
         }
 
         const fontSize = 9;
@@ -72,6 +73,33 @@ class Renderer {
         ctx.fillStyle = '#000000';
         for (let i = 0; i < lines.length; i++) {
             ctx.fillText(lines[i], Math.round(sx), Math.round(startY + i * lineHeight));
+        }
+        ctx.restore();
+    }
+
+    // Neutral planets: a tug-of-war bar. Team 1 fills from the left, team 2 from the right.
+    drawClaimBar(planet, gameManager, sx, sy) {
+        const ctx = this.ctx;
+        const n = planet.claimCost;
+        const filled = planet.claimOwner === 0 ? 0 : Math.max(0, Math.min(n, Math.floor(planet.upgradeProgress)));
+        const color = planet.claimOwner === 0 ? null : FactionManager.getColor(planet.claimOwner, gameManager);
+        const fromLeft = planet.claimOwner === 1;
+
+        const w = CLAIM_BAR_PIECE_W, h = CLAIM_BAR_PIECE_H, gap = CLAIM_BAR_GAP;
+        const x0 = Math.round(sx - (n * w + (n - 1) * gap) / 2);
+        const y0 = Math.round(sy - h / 2);
+
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = CLAIM_BAR_OUTLINE;
+        for (let i = 0; i < n; i++) {
+            const px = x0 + i * (w + gap);
+            const isFilled = fromLeft ? i < filled : i >= n - filled;
+            if (isFilled) {
+                ctx.fillStyle = color;
+                ctx.fillRect(px, y0, w, h);
+            }
+            ctx.strokeRect(px + 0.5, y0 + 0.5, w - 1, h - 1);
         }
         ctx.restore();
     }
