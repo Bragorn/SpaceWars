@@ -149,8 +149,8 @@ class GameManager {
         const availableShips = this.ships.filter(s =>
             !s.dead &&
             s.owner === sourcePlanet.owner &&
-            (s.targetPlanet === sourcePlanet || s.orbitPlanet === sourcePlanet) &&
-            (s.state === 'orbit' || s.state === 'surface_launch')
+            s.state === 'orbit' &&
+            s.targetPlanet === sourcePlanet
         );
 
         if (availableShips.length === 0) return;
