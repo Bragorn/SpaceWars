@@ -103,21 +103,23 @@ class GameManager {
     }
 
     spawnExplosion(ship) {
-        const c = Math.cos(ship.heading), n = Math.sin(ship.heading);
-        const shards = [];
-        for (let i = 0; i < HULL_POINTS.length; i++) {
-            const a = HULL_POINTS[i];
-            const b = HULL_POINTS[(i + 1) % HULL_POINTS.length];
-            const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-            const ox = mx * c - my * n, oy = mx * n + my * c;
-            const len = Math.sqrt(ox * ox + oy * oy) || 1;
-            const push = SHARD_SPEED * (0.6 + Math.random() * 0.8);
-            shards.push({
-                x: ship.x + ox, y: ship.y + oy,
-                vx: ship.vx + (ox / len) * push, vy: ship.vy + (oy / len) * push
+        const count = DEBRIS_MIN + Math.floor(Math.random() * (DEBRIS_MAX - DEBRIS_MIN + 1));
+        const debris = [];
+        for (let i = 0; i < count; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const push = DEBRIS_SPEED * (1 - DEBRIS_SPEED_SPREAD + Math.random() * 2 * DEBRIS_SPEED_SPREAD);
+            const off = Math.random() * 2.5;   // start inside the hull
+            debris.push({
+                x: ship.x + Math.cos(ang) * off,
+                y: ship.y + Math.sin(ang) * off,
+                vx: ship.vx + Math.cos(ang) * push,
+                vy: ship.vy + Math.sin(ang) * push,
+                shape: DEBRIS_SHAPES[Math.floor(Math.random() * DEBRIS_SHAPES.length)],
+                glintPhase: Math.random() * Math.PI * 2,
+                glintRate: DEBRIS_GLINT_RATE_MIN + Math.random() * (DEBRIS_GLINT_RATE_MAX - DEBRIS_GLINT_RATE_MIN)
             });
         }
-        this.explosions.push({ x: ship.x, y: ship.y, vx: ship.vx, vy: ship.vy, age: 0, color: ship.color, shards });
+        this.explosions.push({ x: ship.x, y: ship.y, vx: ship.vx, vy: ship.vy, age: 0, color: ship.color, debris });
     }
 
     // Moves any loose object (cloud, shard): planet gravity inside SOIs, drag in the thin
@@ -242,12 +244,12 @@ class GameManager {
         for (const e of this.explosions) {
             e.age += dt;
             this.driftInSpace(e, dt);
-            if (e.age < SHARD_LIFE) {
-                for (const s of e.shards) this.driftInSpace(s, dt);
+            if (e.age < DEBRIS_LIFE) {
+                for (const d of e.debris) this.driftInSpace(d, dt);
             }
         }
         this.explosions = this.explosions.filter(e =>
-            e.age < Math.max(window.GAME_CONFIG.EXPLOSION_SECONDS, SHARD_LIFE));
+            e.age < Math.max(window.GAME_CONFIG.EXPLOSION_SECONDS, DEBRIS_LIFE));
 
         this.ships = this.ships.filter(s => !s.dead);
         this.refreshFrameStats();

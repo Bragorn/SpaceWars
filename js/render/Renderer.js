@@ -214,18 +214,33 @@ class Renderer {
         const ctx = this.ctx;
         const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
 
-        // Debris: single-pixel specks in the ship's color
+        // Debris: jagged pixel chunks that drift, fade, and sometimes catch a glint of light
+        const cell = DEBRIS_CELL;
         for (const e of list) {
-            if (e.age >= SHARD_LIFE) continue;
-            ctx.globalAlpha = 1 - e.age / SHARD_LIFE;
+            if (e.age >= DEBRIS_LIFE) continue;
+            ctx.globalAlpha = 1 - e.age / DEBRIS_LIFE;
+
+            ctx.beginPath();   // normal chunks
+            for (const d of e.debris) {
+                if (Math.sin(e.age * d.glintRate + d.glintPhase) > DEBRIS_GLINT_LEVEL) continue;
+                for (const c of d.shape) ctx.rect(d.x + c[0] * cell - cell / 2, d.y + c[1] * cell - cell / 2, cell, cell);
+            }
             ctx.fillStyle = e.color;
-            for (const s of e.shards) ctx.fillRect(s.x - 0.5, s.y - 0.5, 1, 1);
+            ctx.fill();
+
+            ctx.beginPath();   // chunks catching the light
+            for (const d of e.debris) {
+                if (Math.sin(e.age * d.glintRate + d.glintPhase) <= DEBRIS_GLINT_LEVEL) continue;
+                for (const c of d.shape) ctx.rect(d.x + c[0] * cell - cell / 2, d.y + c[1] * cell - cell / 2, cell, cell);
+            }
+            ctx.fillStyle = DEBRIS_GLINT_COLOR;
+            ctx.fill();
         }
 
         // Plume: runs from the first frame, grows fast then eases out, fades as it goes
         for (const e of list) {
             const t = Math.min(1, e.age / dur);
-            const grow = 1 - (1 - t) * (1 - t) * (1 - t);
+            const grow = Math.sqrt(t);
             const r = FIREBALL_START_RADIUS + (FIREBALL_END_RADIUS - FIREBALL_START_RADIUS) * grow;
             
             // yellow -> orange -> brown -> smoke
