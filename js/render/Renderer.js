@@ -24,11 +24,29 @@ class Renderer {
         const ctx = this.ctx;
 
         for (const planet of gameManager.planets) {
+            const color = FactionManager.getColor(planet.owner, gameManager);
+
+            // Atmosphere haze: the planet's color, fading out over ATMOSPHERE_HEIGHT
+            const rgb = this.hexToRgb(color);
+            const haze = ctx.createRadialGradient(planet.x, planet.y, planet.radius, planet.x, planet.y, planet.radius + ATMOSPHERE_HEIGHT);
+            haze.addColorStop(0, `rgba(${rgb},${ATMOSPHERE_HAZE_ALPHA})`);
+            haze.addColorStop(1, `rgba(${rgb},0)`);
+            ctx.fillStyle = haze;
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius + ATMOSPHERE_HEIGHT, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Planet body
             ctx.beginPath();
             ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
-            ctx.fillStyle = FactionManager.getColor(planet.owner, gameManager);
+            ctx.fillStyle = color;
             ctx.fill();
         }
+    }
+
+    hexToRgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
     }
 
     // Planet info is drawn in screen space at a fixed size so the text stays crisp at any zoom

@@ -18,8 +18,10 @@ const THRUSTER_RADIUS_GAIN = 1.0;  // added at full thrust
 const THRUSTER_MIN_THRUST = 0.05;  // below this, no flame is drawn
 const THRUSTER_COLOR = '#FF8C1A';  // orange for now
 
-// ---------- Ship Explosion ----------
-const EXPLOSION_ATMOSPHERE = 10.0; // px above the planet surface where clouds feel drag
+// ---------- Atmosphere ----------
+const ATMOSPHERE_HEIGHT = 12;       // px above the surface. Keep under 14 (lowest orbit) so orbiting ships stay outside it
+const ATMOSPHERE_HAZE_ALPHA = 0.35; // haze brightness at the surface, fading to nothing at the top
+
 const EXPLOSION_ATMO_DRAG = 16.0;  // higher = clouds stop sooner inside that band
 
 // ---------- Explosion Flash ----------

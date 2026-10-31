@@ -135,7 +135,7 @@ class GameManager {
             const a = cfg.PHYSICS.GRAV_CONST / d2;
             o.vx += (dx / d) * a * dt;
             o.vy += (dy / d) * a * dt;
-            if (d < p.radius + EXPLOSION_ATMOSPHERE) {
+            if (d < p.radius + ATMOSPHERE_HEIGHT) {
                 const drag = Math.exp(-EXPLOSION_ATMO_DRAG * dt);
                 o.vx *= drag;
                 o.vy *= drag;
