@@ -109,8 +109,11 @@ class Planet {
                 }
             }
         } else if (this.owner === ship.owner) {
-            // Friendly: feed the upgrade
-            if (this.level < this.maxTier) {
+            if (this.hp < this.maxHp) {
+                // Damaged: the landing ship repairs instead of upgrading
+                this.hp = Math.min(this.maxHp, this.hp + power);
+            } else if (this.level < this.maxTier) {
+                // Full health: feed the upgrade
                 this.upgradeProgress += power;
                 if (this.upgradeProgress >= this.getUpgradeCost()) {
                     this.upgrade(gameManager);
