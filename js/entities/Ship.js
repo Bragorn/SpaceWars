@@ -66,6 +66,8 @@ class Ship {
         this.launchDuration = 2.0;
         this.landingProgress = 0;
         this.landingDuration = 4.0;
+        this.groundTimer = 0;
+        this.groundDuration = 1.0;   // seconds sitting on the surface before lifting off again
         this.landCheckTimer = 0;
         this.landCheckInterval = 0.5;   // seconds between "does this planet still need landers?" checks
         this.orbitTimer = 0;
@@ -244,6 +246,19 @@ class Ship {
     updateSurfaceLaunch(dt) {
         const planet = this.orbitPlanet;
 
+        if (this.groundTimer > 0) {
+            this.groundTimer -= dt;
+            const surfaceR = planet.radius + 1.5;
+            this.orbitAngle = this.launchStartAngle;
+            this.x = planet.x + Math.cos(this.orbitAngle) * surfaceR;
+            this.y = planet.y + Math.sin(this.orbitAngle) * surfaceR;
+            this.vx = 0;
+            this.vy = 0;
+            this.heading = this.orbitAngle;   // nose straight up
+            this.thrustRatio = 0;
+            return;
+        }
+
         this.launchProgress += dt / this.launchDuration;
         const p = Math.min(1.0, this.launchProgress);
 
@@ -356,6 +371,18 @@ class Ship {
         this.thrustRatio = Math.sin(p * Math.PI) * 0.85;
 
         if (p >= 1.0) {
+            if (planet.owner === this.owner && !planet.canUseFriendlyLander()) {
+                // Nothing for this ship to do here: wait on the surface a moment, then lift off again
+                this.state = 'surface_launch';
+                this.orbitPlanet = planet;
+                this.launchStartAngle = this.orbitAngle;
+                this.launchProgress = 0;
+                this.groundTimer = this.groundDuration;
+                this.postLaunchState = 'orbit';
+                this.upgrading = false;
+                this.thrustRatio = 0;
+                return;
+            }
             this.dead = true;
             planet.onShipTouchdown(this, gameManager);
         }

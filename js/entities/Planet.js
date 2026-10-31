@@ -66,11 +66,18 @@ class Planet {
     // maxCount (optional) caps how many are sent this call.
     startUpgrade(ships, maxCount = Infinity) {
         const upgCost = this.getUpgradeCost();
-        if (this.level >= this.maxTier || upgCost <= 0) return;
+        const canUpgrade = this.level < this.maxTier && upgCost > 0;
+        const canRepair = this.hp < this.maxHp;
+        if (!canUpgrade && !canRepair) return;
 
         const mine = ships.filter(s => !s.dead && s.owner === this.owner && s.targetPlanet === this);
-        const landingCount = mine.filter(s => s.state === 'landing').length;
-        const needed = Math.min(maxCount, upgCost - (Math.floor(this.upgradeProgress) + landingCount));
+        const landingCount = mine.filter(s => s.state === 'landing' && s.upgrading).length;
+
+        // Below max level: send what the upgrade needs. At max level: only what the repair needs.
+        const wanted = canUpgrade
+            ? upgCost - (Math.floor(this.upgradeProgress) + landingCount)
+            : Math.ceil(this.maxHp - this.hp) - landingCount;
+        const needed = Math.min(maxCount, wanted);
         if (needed <= 0) return;
 
         const eligible = mine.filter(s => s.state === 'orbit');
@@ -151,6 +158,11 @@ class Planet {
 
         gameManager.log('PLANET_UPGRADE', this.owner);
         gameManager.playSound('planet_upgrade');
+    }
+
+    // True if a friendly ship landing now would do something (repair or upgrade)
+    canUseFriendlyLander() {
+        return this.hp < this.maxHp || this.level < this.maxTier;
     }
 
     // ================= UPDATE =================
