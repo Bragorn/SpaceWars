@@ -20,7 +20,7 @@ const THRUSTER_COLOR = '#FF8C1A';  // orange for now
 
 // ---------- Atmosphere ----------
 const ATMOSPHERE_HEIGHT = 12;       // px above the surface. Keep under 14 (lowest orbit) so orbiting ships stay outside it
-const ATMOSPHERE_HAZE_ALPHA = 0.35; // haze brightness at the surface, fading to nothing at the top
+const ATMOSPHERE_HAZE_ALPHA = 0.25; // haze brightness at the surface, fading to nothing at the top
 
 const EXPLOSION_ATMO_DRAG = 16.0;  // higher = clouds stop sooner inside that band
 
@@ -86,3 +86,21 @@ const STAR_COLORS = [              // rgb and how common it is
     { rgb: [160, 195, 255], w: 14 },   // blue
     { rgb: [205, 165, 255], w: 4 }     // purple, rare
 ];
+
+// ---------- Planet takeover (the attacker's color creeps in from the rim as HP drops) ----------
+const TAKEOVER_EDGE_SOFT = 0.15;    // softness of the edge, as a fraction of the radius (0.02 = crisp)
+const TAKEOVER_SMOOTH_RATE = 6;     // how fast the shown damage catches up with the real HP
+
+// ---------- Planet capture wave (glow grows from the center, then the center clears out to the rim) ----------
+const CAPTURE_WAVE_SECONDS = 0.5;
+const CAPTURE_WAVE_SOFT = 0.0;      // edge softness, as a fraction of the radius
+const CAPTURE_WAVE_ALPHA = 1.0;
+
+// ---------- Planet upgrade pulse (rings travel outward, one after another) ----------
+const UPGRADE_RING_COUNT = 3;
+const UPGRADE_RING_GAP = 0.30;      // seconds between rings starting
+const UPGRADE_RING_SECONDS = 0.5;   // life of each ring
+const UPGRADE_RING_REACH = 24;      // px past the rim where a ring has faded out
+const UPGRADE_RING_ALPHA = 0.6;
+const UPGRADE_RING_WIDTH = 3.0;
+const UPGRADE_PULSE_TOTAL = (UPGRADE_RING_COUNT - 1) * UPGRADE_RING_GAP + UPGRADE_RING_SECONDS;

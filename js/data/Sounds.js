@@ -10,6 +10,6 @@ const SOUND_DATA = {
     planet_capture: { file: '',                             volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
     ui_hover:       { file: 'audio/UI_Highlight.wav',       volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
     ui_click:       { file: 'audio/UI_Click.mp3',           volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
-    planet_upgrade: { file: '',                             volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
-    ship_explotion: { file: 'audio/Explotion.wav',          volume: 0.10, pitchVar: 0.10, cooldown: 0.00, maxVoices: 16, bus: 'sfx' }
+    planet_upgrade: { file: 'audio/powerUp.wav',            volume: 0.50, pitchVar: 0.00, cooldown: 0.00, maxVoices: 4, bus: 'sfx' },
+    ship_explosion: { file: 'audio/Explosion.wav',          volume: 0.10, pitchVar: 0.10, cooldown: 0.00, maxVoices: 16, bus: 'sfx' }
 };

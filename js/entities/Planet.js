@@ -31,7 +31,12 @@ class Planet {
         this.spawnTimer = 0;
         this.regenTimer = 0;
         this.upgradeProgress = 0;
-        this.claimOwner = 0; // team currently leading the claim on a neutral planet
+        this.claimOwner = 0;                // team currently leading the claim on a neutral planet
+        this.lastAttacker = 0;              // team that last damaged this planet (for the takeover visual)
+        this.damageShown = 0;               // smoothed 0..1 damage, used by the renderer
+        this.upgradePulseAge = Infinity;    // seconds since the last upgrade (Infinity = none)
+        this.captureWaveAge = Infinity;     // seconds since the last capture
+        this.captureFromNeutral = false;   // true when the last capture was of an unclaimed planet
     }
 
     // ================= STATS =================
@@ -128,6 +133,7 @@ class Planet {
             }
         } else {
             // Enemy: damage it
+            this.lastAttacker = ship.owner;
             this.hp -= power;
             if (this.hp <= 0) {
                 this.captureBy(ship.owner, gameManager);
@@ -136,6 +142,7 @@ class Planet {
     }
 
     captureBy(newOwner, gameManager) {
+        this.captureFromNeutral = (this.owner === 0);
         this.owner = newOwner;
         this.costMult = FactionManager.getFaction(newOwner, gameManager).upgradeCostMult;
         this.level = 1;
@@ -143,6 +150,10 @@ class Planet {
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
         this.claimOwner = 0;
+        this.lastAttacker = newOwner;
+        this.damageShown = 0;
+        this.upgradePulseAge = Infinity;
+        this.captureWaveAge = 0;
 
         gameManager.log('PLANET_CAPTURE', newOwner);
         gameManager.playSound('planet_capture');
@@ -155,6 +166,7 @@ class Planet {
         this.maxHp = this.tierHp(this.level, gameManager);
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
+        this.upgradePulseAge = 0;
 
         gameManager.log('PLANET_UPGRADE', this.owner);
         gameManager.playSound('planet_upgrade');
@@ -168,6 +180,11 @@ class Planet {
     // ================= UPDATE =================
 
     update(dt, gameManager) {
+        this.upgradePulseAge += dt;
+        this.captureWaveAge += dt;
+        const damage = this.owner !== 0 ? 1 - this.hp / this.maxHp : 0;
+        this.damageShown += (damage - this.damageShown) * (1 - Math.exp(-TAKEOVER_SMOOTH_RATE * dt));
+
         if (this.owner !== 0) {
             this.updateSpawning(dt, gameManager);
             this.updateRegen(dt);

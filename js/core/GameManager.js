@@ -1,6 +1,7 @@
 class GameManager {
     constructor() {
         this.planets = [];
+        this.mapId = 0;
         this.ships = [];
         this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {}, landing: new Map() };
@@ -81,6 +82,7 @@ class GameManager {
     }
 
     loadMap(mapData) {
+        this.mapId = mapData.id || 0;
         this.ships = [];
         this.planets = mapData.planets.map(p => new Planet(p.x, p.y, p.level, p.owner, this));
     }

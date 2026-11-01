@@ -9,7 +9,7 @@ class Renderer {
     render(gameManager, controls) {
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.drawStars();
+        this.drawStars(gameManager);
         Viewport.apply(this.ctx);
 
         controls.draw(this.ctx);
@@ -29,22 +29,137 @@ class Renderer {
         for (const planet of gameManager.planets) {
             const color = FactionManager.getColor(planet.owner, gameManager);
 
-            // Atmosphere haze: the planet's color, fading out over ATMOSPHERE_HEIGHT
-            const rgb = this.hexToRgb(color);
+            // Atmosphere haze (white, so it never clashes with a takeover in progress)
             const haze = ctx.createRadialGradient(planet.x, planet.y, planet.radius, planet.x, planet.y, planet.radius + ATMOSPHERE_HEIGHT);
-            haze.addColorStop(0, `rgba(${rgb},${ATMOSPHERE_HAZE_ALPHA})`);
-            haze.addColorStop(1, `rgba(${rgb},0)`);
+            haze.addColorStop(0, `rgba(200,200,200,${ATMOSPHERE_HAZE_ALPHA})`);
+            haze.addColorStop(1, 'rgba(200,200,200,0)');
             ctx.fillStyle = haze;
             ctx.beginPath();
             ctx.arc(planet.x, planet.y, planet.radius + ATMOSPHERE_HEIGHT, 0, Math.PI * 2);
             ctx.fill();
 
-            // Planet body
+            // Planet body (a freshly claimed neutral keeps its old color while the new color wipes in)
+            const wiping = planet.owner !== 0 && planet.captureFromNeutral && planet.captureWaveAge < CAPTURE_WAVE_SECONDS;
             ctx.beginPath();
             ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
-            ctx.fillStyle = color;
+            ctx.fillStyle = wiping ? FactionManager.getColor(0, gameManager) : color;
             ctx.fill();
+            if (wiping) this.drawColorWipe(planet, color, planet.captureWaveAge / CAPTURE_WAVE_SECONDS);
+
+            // Takeover: the attacker's color creeps in from the rim as HP drops
+            if (planet.owner !== 0 && planet.lastAttacker !== 0 && planet.lastAttacker !== planet.owner && planet.damageShown > 0.01) {
+                this.drawTakeover(planet, FactionManager.getColor(planet.lastAttacker, gameManager));
+            }
+
+            // Capture wave: glow grows from the center, then the center clears out to the rim
+            if (planet.owner !== 0 && planet.captureWaveAge < CAPTURE_WAVE_SECONDS) {
+                this.drawCaptureWave(planet, FactionManager.getPalette(planet.owner, gameManager).light, planet.captureWaveAge / CAPTURE_WAVE_SECONDS);
+            }
+
+            // Upgrade pulse: rings travelling outward in the owner's color
+            if (planet.owner !== 0 && planet.upgradePulseAge < UPGRADE_PULSE_TOTAL) {
+                this.drawUpgradePulse(planet, color);
+            }
         }
+    }
+
+    // The new owner's color spreading from the center to the rim, riding just behind the wave's leading edge
+    drawColorWipe(planet, color, u) {
+        const ctx = this.ctx;
+        const rgb = this.hexToRgb(color);
+        const s = Math.max(0.001, CAPTURE_WAVE_SOFT || 0);
+        const front = Math.min(1 + s, u * 2 * (1 + s));   // runs past the rim, so the rim ends fully covered
+
+        const g = ctx.createRadialGradient(planet.x, planet.y, 0, planet.x, planet.y, planet.radius);
+        const stops = [0, front - s, front, 1].map(x => Math.max(0, Math.min(1, x))).sort((a, b) => a - b);
+        for (const x of stops) {
+            const a = Math.max(0, Math.min(1, (front - x) / s));
+            g.addColorStop(x, `rgba(${rgb},${a})`);
+        }
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawCaptureWave(planet, lightColor, u) {
+        const ctx = this.ctx;
+        const rgb = this.hexToRgb(lightColor);
+        const outer = Math.min(1, u * 2);
+        const inner = Math.max(0, u * 2 - 1);
+        const s = Math.max(0.001, CAPTURE_WAVE_SOFT || 0);   // 0 means crisp, never divide by zero
+
+        const alphaAt = (x) => {
+            const fromOuter = Math.max(0, Math.min(1, (outer - x) / s));
+            const fromInner = inner <= 0 ? 1 : Math.max(0, Math.min(1, (x - inner) / s));
+            const a = CAPTURE_WAVE_ALPHA * fromOuter * fromInner;
+            return Number.isFinite(a) ? a : 0;
+        };
+
+        // Stops sit exactly on the edges of the wave, so a crisp edge stays crisp
+        const points = [0, 1, outer - s, outer, inner, inner + s]
+            .map(x => Math.max(0, Math.min(1, x)))
+            .sort((a, b) => a - b);
+
+        const g = ctx.createRadialGradient(planet.x, planet.y, 0, planet.x, planet.y, planet.radius);
+        for (const x of points) g.addColorStop(x, `rgba(${rgb},${alphaAt(x)})`);
+
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawUpgradePulse(planet, color) {
+        const ctx = this.ctx;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = UPGRADE_RING_WIDTH;
+        for (let i = 0; i < UPGRADE_RING_COUNT; i++) {
+            const t = (planet.upgradePulseAge - i * UPGRADE_RING_GAP) / UPGRADE_RING_SECONDS;
+            if (t <= 0 || t >= 1) continue;
+            ctx.globalAlpha = UPGRADE_RING_ALPHA * (1 - t);
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius + 1 + t * UPGRADE_RING_REACH, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    drawUpgradePulse(planet, color) {
+        const ctx = this.ctx;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = UPGRADE_RING_WIDTH;
+        for (let i = 0; i < UPGRADE_RING_COUNT; i++) {
+            const t = (planet.upgradePulseAge - i * UPGRADE_RING_GAP) / UPGRADE_RING_SECONDS;
+            if (t <= 0 || t >= 1) continue;
+            ctx.globalAlpha = UPGRADE_RING_ALPHA * (1 - t);
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius + 1 + t * UPGRADE_RING_REACH, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // Soft-edged circle of the attacker's color, shrinking toward the center as damage grows
+    drawTakeover(planet, attackerColor) {
+        const ctx = this.ctx;
+        const rgb = this.hexToRgb(attackerColor);
+        const soft = Math.max(0.01, TAKEOVER_EDGE_SOFT);
+        const cover = Math.min(1, planet.damageShown);
+        const center = 1 + soft - cover * (1 + 2 * soft);   // where the soft edge sits, as a fraction of the radius
+        const lo = center - soft, hi = center + soft;
+        const alphaAt = (x) => Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+
+        const g = ctx.createRadialGradient(planet.x, planet.y, 0, planet.x, planet.y, planet.radius);
+        g.addColorStop(0, `rgba(${rgb},${alphaAt(0)})`);
+        if (lo > 0 && lo < 1) g.addColorStop(lo, `rgba(${rgb},0)`);
+        if (hi > 0 && hi < 1) g.addColorStop(hi, `rgba(${rgb},1)`);
+        g.addColorStop(1, `rgba(${rgb},${alphaAt(1)})`);
+
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     hexToRgb(hex) {
@@ -306,10 +421,10 @@ class Renderer {
         ctx.globalAlpha = 1;
     }
 
-    // Builds the star image once, and again only when the window size changes
-    buildStars() {
+    // Builds the star image once per map and window size
+    buildStars(mapId) {
         const w = this.canvas.width, h = this.canvas.height;
-        const key = w + 'x' + h;
+        const key = w + 'x' + h + ':' + mapId;
         if (this.starKey === key) return;
         this.starKey = key;
 
@@ -322,8 +437,8 @@ class Renderer {
         const size = Math.max(1, Math.round(dpr));
         const count = Math.round((w / dpr) * (h / dpr) / 1e6 * STAR_DENSITY);
 
-        let a = STAR_SEED;
-        const rand = () => {   // small seeded random, so the sky never changes between games
+        let a = STAR_SEED + mapId * 7919;   // each map gets its own sky
+        const rand = () => {
             a = (a + 0x6D2B79F5) | 0;
             let t = Math.imul(a ^ (a >>> 15), 1 | a);
             t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
@@ -337,14 +452,14 @@ class Renderer {
             for (const c of STAR_COLORS) {
                 if ((pick -= c.w) < 0) { col = c; break; }
             }
-            const alpha = STAR_MIN_ALPHA + rand() * rand() * (STAR_MAX_ALPHA - STAR_MIN_ALPHA);   // mostly dim, a few brighter
+            const alpha = STAR_MIN_ALPHA + rand() * rand() * (STAR_MAX_ALPHA - STAR_MIN_ALPHA);
             g.fillStyle = `rgba(${col.rgb[0]},${col.rgb[1]},${col.rgb[2]},${alpha})`;
             g.fillRect(Math.floor(rand() * w), Math.floor(rand() * h), size, size);
         }
     }
 
-    drawStars() {
-        this.buildStars();
+    drawStars(gameManager) {
+        this.buildStars(gameManager.mapId);
         this.ctx.drawImage(this.starCanvas, 0, 0);
     }
 }
