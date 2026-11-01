@@ -88,21 +88,25 @@ class MapRegistry {
 
     getScaledMap(slotNum, width, height) {
         const rawMap = this.getMap(slotNum);
-        
-        const marginX = 40;
+
+        const edgePad = 70;    // px from the world edge to the outermost planet centers
         const marginY = 40;
-        
-        const usableWidth = width - marginX * 2;
+        const usableWidth = width - edgePad * 2;
         const usableHeight = height - marginY * 2;
+
+        // Stretch the map sideways so its outermost planets land on the edge padding
+        const xs = rawMap.planets.map(p => p.nx);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
 
         return {
             ...rawMap,
             planets: rawMap.planets.map(p => ({
-                x: Math.round(marginX + (p.nx * usableWidth)),
-                y: Math.round(marginY + (p.ny * usableHeight)),
+                x: Math.round(edgePad + ((p.nx - minX) / (maxX - minX)) * usableWidth),
+                y: Math.round(marginY + p.ny * usableHeight),
                 level: p.level,
                 owner: p.owner
-            }))
+            })),
         };
     }
 }

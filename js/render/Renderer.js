@@ -2,11 +2,14 @@ class Renderer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
+        this.starCanvas = null;
+        this.starKey = '';
     }
 
     render(gameManager, controls) {
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawStars();
         Viewport.apply(this.ctx);
 
         controls.draw(this.ctx);
@@ -301,5 +304,47 @@ class Renderer {
             ctx.fill();
         }
         ctx.globalAlpha = 1;
+    }
+
+    // Builds the star image once, and again only when the window size changes
+    buildStars() {
+        const w = this.canvas.width, h = this.canvas.height;
+        const key = w + 'x' + h;
+        if (this.starKey === key) return;
+        this.starKey = key;
+
+        this.starCanvas = document.createElement('canvas');
+        this.starCanvas.width = w;
+        this.starCanvas.height = h;
+        const g = this.starCanvas.getContext('2d');
+
+        const dpr = Viewport.dpr;
+        const size = Math.max(1, Math.round(dpr));
+        const count = Math.round((w / dpr) * (h / dpr) / 1e6 * STAR_DENSITY);
+
+        let a = STAR_SEED;
+        const rand = () => {   // small seeded random, so the sky never changes between games
+            a = (a + 0x6D2B79F5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        const totalW = STAR_COLORS.reduce((sum, c) => sum + c.w, 0);
+
+        for (let i = 0; i < count; i++) {
+            let pick = rand() * totalW;
+            let col = STAR_COLORS[0];
+            for (const c of STAR_COLORS) {
+                if ((pick -= c.w) < 0) { col = c; break; }
+            }
+            const alpha = STAR_MIN_ALPHA + rand() * rand() * (STAR_MAX_ALPHA - STAR_MIN_ALPHA);   // mostly dim, a few brighter
+            g.fillStyle = `rgba(${col.rgb[0]},${col.rgb[1]},${col.rgb[2]},${alpha})`;
+            g.fillRect(Math.floor(rand() * w), Math.floor(rand() * h), size, size);
+        }
+    }
+
+    drawStars() {
+        this.buildStars();
+        this.ctx.drawImage(this.starCanvas, 0, 0);
     }
 }

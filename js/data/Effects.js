@@ -72,3 +72,17 @@ const DEBRIS_SHAPES = (() => {
     }
     return shapes;
 })();
+
+// ---------- Star background ----------
+const STAR_SEED = 1337;            // same sky every time
+const STAR_DENSITY = 5000;          // stars per million screen px
+const STAR_MIN_ALPHA = 0.12;       // keep these low so lasers, debris and explosions stay brighter
+const STAR_MAX_ALPHA = 0.38;
+const STAR_COLORS = [              // rgb and how common it is
+    { rgb: [255, 170, 90],  w: 30 },   // orange
+    { rgb: [255, 225, 130], w: 28 },   // yellow
+    { rgb: [255, 120, 100], w: 16 },   // red
+    { rgb: [255, 255, 255], w: 8 },    // white
+    { rgb: [160, 195, 255], w: 14 },   // blue
+    { rgb: [205, 165, 255], w: 4 }     // purple, rare
+];
