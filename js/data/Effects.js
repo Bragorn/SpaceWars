@@ -74,11 +74,11 @@ const DEBRIS_SHAPES = (() => {
 })();
 
 // ---------- Star background ----------
-const STAR_SEED = 1337;            // same sky every time
+const STAR_SEED = 1337;             // same sky every time
 const STAR_DENSITY = 5000;          // stars per million screen px
-const STAR_MIN_ALPHA = 0.12;       // keep these low so lasers, debris and explosions stay brighter
+const STAR_MIN_ALPHA = 0.12;        // keep these low so lasers, debris and explosions stay brighter
 const STAR_MAX_ALPHA = 0.38;
-const STAR_COLORS = [              // rgb and how common it is
+const STAR_COLORS = [               // rgb and how common it is
     { rgb: [255, 170, 90],  w: 30 },   // orange
     { rgb: [255, 225, 130], w: 28 },   // yellow
     { rgb: [255, 120, 100], w: 16 },   // red
@@ -88,12 +88,12 @@ const STAR_COLORS = [              // rgb and how common it is
 ];
 
 // ---------- Planet takeover (the attacker's color creeps in from the rim as HP drops) ----------
-const TAKEOVER_EDGE_SOFT = 0.15;    // softness of the edge, as a fraction of the radius (0.02 = crisp)
-const TAKEOVER_SMOOTH_RATE = 6;     // how fast the shown damage catches up with the real HP
+const TAKEOVER_EDGE_SOFT = 0.1;    // softness of the edge, as a fraction of the radius (0.02 = crisp)
+const TAKEOVER_SMOOTH_RATE = 1;     // how fast the shown damage catches up with the real HP
 
 // ---------- Planet capture wave (glow grows from the center, then the center clears out to the rim) ----------
-const CAPTURE_WAVE_SECONDS = 0.5;
-const CAPTURE_WAVE_SOFT = 0.0;      // edge softness, as a fraction of the radius
+const CAPTURE_WAVE_SECONDS = 1.0;
+const CAPTURE_WAVE_SOFT = 0.1;      // edge softness, as a fraction of the radius
 const CAPTURE_WAVE_ALPHA = 1.0;
 
 // ---------- Planet upgrade pulse (rings travel outward, one after another) ----------
