@@ -14,7 +14,7 @@ class App {
         this.gameMode = 'PLAYER_VS_CPU';
 
         this.registry = new MapRegistry();
-
+        this.logger = new MatchLogger();
         this.hud = new HUD(window.gameManager);
         window.gameManager.onGameOver = (winningTeam) => this.showGameOver(winningTeam);
         this.initFactions();
@@ -34,6 +34,7 @@ class App {
 
         $('btn-title-enter').addEventListener('click', () => this.showMatchSetup());
         $('btn-setup-back').addEventListener('click', () => this.showTitleScreen());
+        $('btn-export-data').addEventListener('click', () => this.logger.exportCsv());
         $('btn-setup-launch').addEventListener('click', () => this.launchSelectedMap());
         $('btn-new-match').addEventListener('click', () => {
             $('game-over-modal').classList.add('hidden');
@@ -87,6 +88,7 @@ class App {
         // In-Game ESC Exit Menu Bindings
         $('btn-esc-menu').addEventListener('click', () => this.openExitModal());
         $('btn-exit-yes').addEventListener('click', () => {
+            this.logger.finish('abandoned');
             this.closeExitModal();
             this.showMatchSetup();
         });
@@ -150,6 +152,7 @@ class App {
 
     // Game-over popup (the sim calls this through gameManager.onGameOver)
     showGameOver(winningTeam) {
+        this.logger.finish('finished', winningTeam);
         const gm = window.gameManager;
         const modal = document.getElementById('game-over-modal');
         const title = document.getElementById('game-over-title');
@@ -213,6 +216,7 @@ class App {
         this.updateArcadeFactionDisplays();
         this.updateMenuFactionTheme();
         this.renderMapSlots();
+        document.getElementById('btn-export-data').textContent = 'DATA (' + this.logger.count() + ')';
     }
 
     renderMapSlots() {
@@ -257,6 +261,7 @@ class App {
         Viewport.update(this.canvas);
 
         window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
+        this.logger.begin(window.gameManager, scaledMap.name);
     }
 
     loop(timestamp) {
@@ -266,6 +271,7 @@ class App {
         if (this.state === 'GAME') {
             window.gameManager.update(deltaTime);
             this.hud.update();
+            this.logger.tick();
         }
 
         requestAnimationFrame((ts) => this.loop(ts));

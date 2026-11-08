@@ -15,29 +15,29 @@ const GAME_MAPS = [
     },
     {
         id: 2,
-        name: "The Gauntlet",
-        description: "Tight linear frontline pushing directly through center, with high-risk flank paths.",
+        name: "Twin Lanes",
+        description: "Two separate lanes, top and bottom, with an empty middle. Pick a lane or split your fleet.",
         planets: [
             { nx: 0.06, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.28, ny: 0.50, level: 1, owner: 0 }, // West Buffer
-            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Center Choke
-            { nx: 0.50, ny: 0.12, level: 1, owner: 0 }, // Top Flank
-            { nx: 0.50, ny: 0.88, level: 1, owner: 0 }, // Bottom Flank
-            { nx: 0.72, ny: 0.50, level: 1, owner: 0 }, // East Buffer
+            { nx: 0.28, ny: 0.15, level: 1, owner: 0 }, // Top Lane West
+            { nx: 0.50, ny: 0.15, level: 1, owner: 0 }, // Top Lane Mid
+            { nx: 0.72, ny: 0.15, level: 1, owner: 0 }, // Top Lane East
+            { nx: 0.28, ny: 0.85, level: 1, owner: 0 }, // Bottom Lane West
+            { nx: 0.50, ny: 0.85, level: 1, owner: 0 }, // Bottom Lane Mid
+            { nx: 0.72, ny: 0.85, level: 1, owner: 0 }, // Bottom Lane East
             { nx: 0.94, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
     {
         id: 3,
-        name: "Vertical Wall",
-        description: "A dense vertical wall in the center blocks direct forward transit.",
+        name: "The Diamond",
+        description: "Four planets in a diamond around an empty center. Whoever holds the tips controls the fight.",
         planets: [
             { nx: 0.06, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.25, ny: 0.50, level: 1, owner: 0 }, // Player Staging
-            { nx: 0.50, ny: 0.20, level: 1, owner: 0 }, // Wall Top
-            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Wall Mid
-            { nx: 0.50, ny: 0.80, level: 1, owner: 0 }, // Wall Bottom
-            { nx: 0.75, ny: 0.50, level: 1, owner: 0 }, // AI Staging
+            { nx: 0.30, ny: 0.50, level: 1, owner: 0 }, // West Tip
+            { nx: 0.50, ny: 0.12, level: 1, owner: 0 }, // North Tip
+            { nx: 0.50, ny: 0.88, level: 1, owner: 0 }, // South Tip
+            { nx: 0.70, ny: 0.50, level: 1, owner: 0 }, // East Tip
             { nx: 0.94, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
@@ -85,14 +85,13 @@ const GAME_MAPS = [
     {
         id: 7,
         name: "The Iron Spine",
-        description: "A continuous 5-planet vertical spine driving intense mid-map competition.",
+        description: "A staggered 4-planet vertical spine driving intense mid-map competition.",
         planets: [
             { nx: 0.06, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.50, ny: 0.10, level: 1, owner: 0 }, // Spine 1 (Top)
-            { nx: 0.50, ny: 0.30, level: 1, owner: 0 }, // Spine 2
-            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Spine 3 (Mid)
-            { nx: 0.50, ny: 0.70, level: 1, owner: 0 }, // Spine 4
-            { nx: 0.50, ny: 0.90, level: 1, owner: 0 }, // Spine 5 (Bottom)
+            { nx: 0.46, ny: 0.10, level: 1, owner: 0 }, // Spine 1 (Top)
+            { nx: 0.54, ny: 0.37, level: 1, owner: 0 }, // Spine 2
+            { nx: 0.46, ny: 0.63, level: 1, owner: 0 }, // Spine 3
+            { nx: 0.54, ny: 0.90, level: 1, owner: 0 }, // Spine 4 (Bottom)
             { nx: 0.94, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
@@ -124,14 +123,16 @@ const GAME_MAPS = [
     },
     {
         id: 10,
-        name: "The Quadrants",
-        description: "Four distinct planet pairings with a total void in the center.",
+        name: "The Bowtie",
+        description: "Two triangles of planets pinched together at the center, one per side.",
         planets: [
             { nx: 0.06, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.32, ny: 0.20, level: 1, owner: 0 }, // NW Pair A
-            { nx: 0.32, ny: 0.80, level: 1, owner: 0 }, // SW Pair A
-            { nx: 0.68, ny: 0.20, level: 1, owner: 0 }, // NE Pair B
-            { nx: 0.68, ny: 0.80, level: 1, owner: 0 }, // SE Pair B
+            { nx: 0.26, ny: 0.22, level: 1, owner: 0 }, // West Triangle North
+            { nx: 0.26, ny: 0.78, level: 1, owner: 0 }, // West Triangle South
+            { nx: 0.42, ny: 0.50, level: 1, owner: 0 }, // West Triangle Point
+            { nx: 0.58, ny: 0.50, level: 1, owner: 0 }, // East Triangle Point
+            { nx: 0.74, ny: 0.22, level: 1, owner: 0 }, // East Triangle North
+            { nx: 0.74, ny: 0.78, level: 1, owner: 0 }, // East Triangle South
             { nx: 0.94, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     }

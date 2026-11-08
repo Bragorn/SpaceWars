@@ -24,6 +24,8 @@ class GameManager {
 
         this.isRunning = false;
         this.gameTime = 0;
+        this.simTime = 0;
+        this.firstCapture = null;
         this.accumulator = 0;
         this.gameSpeed = window.GAME_CONFIG.DEFAULT_SPEED;
 
@@ -93,6 +95,9 @@ class GameManager {
     }
 
     log(type, teamId, details) {
+        if (type === 'PLANET_CAPTURE' && !this.firstCapture) {
+            this.firstCapture = { team: teamId, t: Math.round(this.simTime * 10) / 10 };
+        }
         this.telemetry.logEvent(type, teamId, details);
     }
 
@@ -239,6 +244,7 @@ class GameManager {
     }
 
     step(dt) {
+        this.simTime += dt;
         this.planets.forEach(p => p.update(dt, this));
         this.ships.forEach(s => s.update(dt, this));
 

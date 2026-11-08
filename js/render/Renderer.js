@@ -125,21 +125,6 @@ class Renderer {
         ctx.globalAlpha = 1;
     }
 
-    drawUpgradePulse(planet, color) {
-        const ctx = this.ctx;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = UPGRADE_RING_WIDTH;
-        for (let i = 0; i < UPGRADE_RING_COUNT; i++) {
-            const t = (planet.upgradePulseAge - i * UPGRADE_RING_GAP) / UPGRADE_RING_SECONDS;
-            if (t <= 0 || t >= 1) continue;
-            ctx.globalAlpha = UPGRADE_RING_ALPHA * (1 - t);
-            ctx.beginPath();
-            ctx.arc(planet.x, planet.y, planet.radius + 1 + t * UPGRADE_RING_REACH, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-    }
-
     // Soft-edged circle of the attacker's color, shrinking toward the center as damage grows
     drawTakeover(planet, attackerColor) {
         const ctx = this.ctx;
