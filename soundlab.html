@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SpaceWars Sound Lab</title>
+<style>
+    html, body { margin: 0; height: 100%; background: #060912; color: #fff; font: 12px monospace; overflow: hidden; }
+    #game { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
+    #panel { position: fixed; top: 8px; right: 8px; width: 360px; max-height: calc(100vh - 16px); overflow-y: auto;
+             background: #000; border: 1px solid #fff; padding: 8px; z-index: 10; }
+    #panel.hidden { display: none; }
+    h3 { margin: 10px 0 4px; font-size: 12px; border-bottom: 1px solid #555; padding-bottom: 2px; }
+    label { display: inline-block; margin: 2px 8px 2px 0; }
+    input, select, button { font: 12px monospace; background: #000; color: #fff; border: 1px solid #555; padding: 2px 4px; }
+    input[type=number] { width: 54px; }
+    button { cursor: pointer; }
+    button:hover { background: #fff; color: #000; }
+    .row { border: 1px solid #333; padding: 4px; margin: 4px 0; }
+    .row .name { color: #7fd; margin-bottom: 2px; }
+    .row select { width: 215px; }
+    .row .nums label { margin-right: 4px; }
+    #status { color: #9aa4b2; margin: 4px 0; min-height: 14px; }
+    #export { background: #111; border: 1px solid #333; padding: 4px; white-space: pre-wrap; word-break: break-all; font-size: 10px; max-height: 160px; overflow-y: auto; }
+    .hint { color: #888; font-size: 10px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="panel">
+    <div><b>SOUND LAB</b> <span class="hint">[H] hide panel. Click once on the page to unlock audio.</span></div>
+
+    <h3>BATTLE</h3>
+    <label>Ships/side <input id="count" type="number" value="100" min="1" max="400"></label>
+    <label>Gap px <input id="gap" type="number" value="240" min="150" max="900"></label><br>
+    <label>Wave every (s) <input id="wave" type="number" value="5" min="1"></label>
+    <label>Speed
+        <select id="speed"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option></select>
+    </label><br>
+    <label>Team 1 <select id="f1"></select></label>
+    <label>Team 2 <select id="f2"></select></label><br>
+    <label><input id="spawn" type="checkbox" checked> planets keep spawning</label><br>
+    <label><input id="auto" type="checkbox" checked> auto-restart when a side is wiped out</label><br>
+    <button id="restart">RESTART BATTLE</button>
+    <label style="margin-left:8px">Master vol <input id="master" type="range" min="0" max="1" step="0.05" value="0.8"></label>
+
+    <h3>AUDIO FILES</h3>
+    <button id="pick">LOAD AUDIO FOLDER</button>
+    <label>Path prefix <input id="prefix" type="text" value="audio/" style="width:70px"></label>
+    <input id="folder" type="file" webkitdirectory multiple style="display:none">
+    <div class="hint">Choose your audio folder once. Every sound below can then be switched from its dropdown (or with the arrows) with no code edits. Prefix replaces the folder name in the exported path.</div>
+    <div id="status"></div>
+
+    <h3>SOUNDS</h3>
+    <div id="sounds"></div>
+
+    <h3>SOUNDS.JS LINES</h3>
+    <div class="hint">Copy these over the matching lines in js/data/Sounds.js once you like the result.</div>
+    <div id="export"></div>
+    <button id="copy">COPY LINES</button>
+</div>
+
+<!-- same scripts as sim.html (main.js and App.js are NOT loaded) -->
+<script src="js/data/config.js"></script>
+<script src="js/data/Factions.js"></script>
+<script src="js/data/Effects.js"></script>
+<script src="js/data/Sounds.js"></script>
+<script src="js/data/MapRegistry.js"></script>
+<script src="js/entities/Planet.js"></script>
+<script src="js/entities/Ship.js"></script>
+<script src="js/systems/OrbitalMath.js"></script>
+<script src="js/systems/Controls.js"></script>
+<script src="js/systems/AIController.js"></script>
+<script src="js/render/Viewport.js"></script>
+<script src="js/render/Renderer.js"></script>
+<script src="js/core/AudioManager.js"></script>
+<script src="js/utils/TelemetryCollector.js"></script>
+<script src="js/core/GameManager.js"></script>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const canvas = $('game');
+const gm = new GameManager();
+AudioManager.init();
+
+function resize() { Viewport.update(canvas); }
+resize();
+window.addEventListener('resize', resize);
+
+// ================= BATTLE =================
+const FIDS = Object.keys(FACTION_DATA);
+for (const sel of [$('f1'), $('f2')]) {
+    for (const f of FIDS) {
+        const o = document.createElement('option');
+        o.value = f; o.textContent = FACTION_DATA[f].name;
+        sel.appendChild(o);
+    }
+}
+$('f1').value = 'REMNANTS';
+$('f2').value = 'PROTOCOL';
+
+let sendClock = 0;
+let restartAt = 0;
+
+function startBattle() {
+    const cx = 640, cy = 360;
+    const half = (Number($('gap').value) || 240) / 2;
+    const map = {
+        id: 99, name: 'Sound Lab',
+        planets: [
+            { x: cx - half, y: cy, level: 1, owner: 1 },
+            { x: cx + half, y: cy, level: 1, owner: 2 }
+        ]
+    };
+    let f2 = $('f2').value;
+    if (f2 === $('f1').value) f2 = FIDS.find(f => f !== $('f1').value);   // factions must differ
+
+    gm.start(map, $('f1').value, f2, 'CPU_VS_CPU');
+    gm.aiController1 = null;   // no AI: this page only sends the waves below
+    gm.aiController2 = null;
+    gm.setSpeed(Number($('speed').value));
+
+    const [a, b] = gm.planets;
+    const n = Math.max(1, Number($('count').value) || 100);
+    for (let i = 0; i < n; i++) { gm.spawnShip(a, a); gm.spawnShip(b, b); }
+
+    sendClock = 3.5;   // let the first ships reach orbit, then everyone goes
+    restartAt = 0;
+}
+
+gm.onGameOver = () => { restartAt = performance.now() + 2500; };
+
+let last = performance.now();
+function frame(ts) {
+    const dt = Math.min(0.25, (ts - last) / 1000 || 0);
+    last = ts;
+
+    if (gm.isRunning) {
+        if (!$('spawn').checked) for (const p of gm.planets) p.spawnTimer = 0;
+
+        sendClock -= dt * gm.gameSpeed;
+        if (sendClock <= 0 && gm.planets.length === 2) {
+            sendClock = Number($('wave').value) || 5;
+            gm.dispatchFleet(gm.planets[0], gm.planets[1], 1);
+            gm.dispatchFleet(gm.planets[1], gm.planets[0], 1);
+        }
+        gm.update(dt);
+    } else if (restartAt && ts > restartAt && $('auto').checked) {
+        startBattle();
+    }
+    requestAnimationFrame(frame);
+}
+
+$('restart').onclick = startBattle;
+$('speed').onchange = () => gm.setSpeed(Number($('speed').value));
+$('master').oninput = () => AudioManager.setVolume('master', Number($('master').value));
+AudioManager.setVolume('master', Number($('master').value));
+window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'h' && !/INPUT|SELECT/.test(document.activeElement.tagName)) $('panel').classList.toggle('hidden');
+});
+
+// ================= SOUND PICKER =================
+const SOUND_IDS = Object.keys(SOUND_DATA);
+const defaultFile = {};   // id -> file path from Sounds.js
+const curPath = {};       // id -> path currently loaded
+const sels = {};          // id -> <select>
+const loaded = new Map(); // exported path -> blob URL
+for (const id of SOUND_IDS) { defaultFile[id] = SOUND_DATA[id].file; curPath[id] = SOUND_DATA[id].file; }
+
+function setStatus(t) { $('status').textContent = t; }
+
+function fillOptions(id) {
+    const sel = sels[id];
+    const keep = sel.value;
+    sel.innerHTML = '';
+    const add = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; sel.appendChild(o); };
+    add('__none__', '(none)');
+    if (defaultFile[id]) add('__default__', 'default: ' + defaultFile[id]);
+    for (const path of loaded.keys()) add(path, path);
+    sel.value = [...sel.options].some(o => o.value === keep) ? keep : (defaultFile[id] ? '__default__' : '__none__');
+}
+
+function applySound(id) {
+    const val = sels[id].value;
+    let path = '', url = '';
+    if (val === '__default__') { path = defaultFile[id]; url = path; }
+    else if (val !== '__none__') { path = val; url = loaded.get(val); }
+
+    if (!url) {
+        AudioManager.templates.delete(id);
+    } else {
+        const a = new Audio(url);
+        a.preload = 'auto';
+        a.addEventListener('error', () => setStatus('Could not load ' + path));
+        AudioManager.templates.set(id, a);
+    }
+    curPath[id] = path;
+    SOUND_DATA[id].file = path;
+    updateExport();
+}
+
+function stepSound(id, dir) {
+    const sel = sels[id];
+    const n = sel.options.length;
+    if (n < 2) return;
+    sel.selectedIndex = (sel.selectedIndex + dir + n) % n;
+    applySound(id);
+    AudioManager.play(id);
+}
+
+function buildRows() {
+    const box = $('sounds');
+    for (const id of SOUND_IDS) {
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = id + '  [' + SOUND_DATA[id].bus + ']';
+        row.appendChild(name);
+
+        const prev = document.createElement('button'); prev.textContent = '<';
+        const sel = document.createElement('select');
+        const next = document.createElement('button'); next.textContent = '>';
+        const play = document.createElement('button'); play.textContent = 'PLAY';
+        sels[id] = sel;
+        prev.onclick = () => stepSound(id, -1);
+        next.onclick = () => stepSound(id, 1);
+        play.onclick = () => AudioManager.play(id);
+        sel.onchange = () => { applySound(id); AudioManager.play(id); };
+        row.append(prev, sel, next, play);
+
+        const nums = document.createElement('div');
+        nums.className = 'nums';
+        for (const [k, step, min, max] of [['volume', 0.05, 0, 1], ['pitchVar', 0.05, 0, 1], ['cooldown', 0.01, 0, 2], ['maxVoices', 1, 1, 64]]) {
+            const lab = document.createElement('label');
+            lab.textContent = k + ' ';
+            const inp = document.createElement('input');
+            inp.type = 'number'; inp.step = step; inp.min = min; inp.max = max;
+            inp.value = SOUND_DATA[id][k];
+            inp.oninput = () => {
+                const v = Number(inp.value);
+                if (!Number.isFinite(v)) return;
+                SOUND_DATA[id][k] = v;
+                updateExport();
+            };
+            lab.appendChild(inp);
+            nums.appendChild(lab);
+        }
+        row.appendChild(nums);
+        box.appendChild(row);
+        fillOptions(id);
+    }
+    updateExport();
+}
+
+function updateExport() {
+    const lines = SOUND_IDS.map(id => {
+        const d = SOUND_DATA[id];
+        return `${id}: { file: '${d.file}', volume: ${d.volume}, pitchVar: ${d.pitchVar}, cooldown: ${d.cooldown}, maxVoices: ${d.maxVoices}, bus: '${d.bus}' },`;
+    });
+    $('export').textContent = lines.join('\n');
+}
+
+$('pick').onclick = () => $('folder').click();
+$('folder').onchange = () => {
+    const prefix = $('prefix').value;
+    for (const url of loaded.values()) if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    loaded.clear();
+
+    const list = [...$('folder').files]
+        .filter(f => /\.(wav|mp3|ogg|flac|m4a)$/i.test(f.name))
+        .sort((a, b) => a.webkitRelativePath.localeCompare(b.webkitRelativePath, undefined, { numeric: true }));
+    for (const f of list) {
+        const rest = f.webkitRelativePath.split('/').slice(1).join('/');   // drop the folder name
+        loaded.set(prefix + rest, URL.createObjectURL(f));
+    }
+    for (const id of SOUND_IDS) fillOptions(id);
+    setStatus(list.length + ' audio files loaded.');
+};
+
+$('copy').onclick = () => navigator.clipboard.writeText($('export').textContent);
+
+buildRows();
+startBattle();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

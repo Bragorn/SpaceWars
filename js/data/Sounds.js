@@ -6,10 +6,10 @@
 //   maxVoices max copies playing at once
 //   bus       'sfx' | 'ui' | 'music'
 const SOUND_DATA = {
-    laser:          { file: 'audio/laserShoot.wav',         volume: 0.20, pitchVar: 0.25, cooldown: 0.00, maxVoices: 16, bus: 'sfx' },
+    laser:          { file: 'audio/laserShoot (4).wav',     volume: 0.50, pitchVar: 0.15, cooldown: 0.00, maxVoices: 16, bus: 'sfx' },
     planet_capture: { file: '',                             volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
-    ui_hover:       { file: 'audio/mouseHover.wav',         volume: 0.10, pitchVar: 0.00, cooldown: 0.00, maxVoices: 16, bus: 'ui'  },
-    ui_click:       { file: 'audio/mouseClick.wav',     volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
-    planet_upgrade: { file: 'audio/planetLvlUp.wav',        volume: 0.80, pitchVar: 0.10, cooldown: 0.00, maxVoices: 4, bus: 'sfx' },
-    ship_explosion: { file: 'audio/explosion.wav',          volume: 0.10, pitchVar: 0.25, cooldown: 0.00, maxVoices: 16, bus: 'sfx' }
+    ui_hover:       { file: 'audio/mouseHover.wav',         volume: 0.05, pitchVar: 0.00, cooldown: 0.00, maxVoices: 16, bus: 'ui'  },
+    ui_click:       { file: 'audio/mouseClick.wav',         volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
+    planet_upgrade: { file: 'audio/planetLvlUp.wav',        volume: 0.70, pitchVar: 0.15, cooldown: 0.00, maxVoices: 4, bus: 'sfx' },
+    ship_explosion: { file: 'audio/explosion.wav',          volume: 0.05, pitchVar: 0.15, cooldown: 0.00, maxVoices: 16, bus: 'sfx' }
 };
