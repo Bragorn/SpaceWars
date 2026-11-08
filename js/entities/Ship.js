@@ -28,8 +28,9 @@ function hasLineOfSight(p1, p2, planets) {
 }
 
 class Ship {
-    constructor(sourcePlanet, targetPlanet, gameManager) {
-        this.owner = sourcePlanet.owner;
+    static SEARCH_INTERVAL = 0.1;   // seconds between full enemy searches
+
+    constructor(sourcePlanet, targetPlanet, gameManager) {        this.owner = sourcePlanet.owner;
         this.orbitPlanet = sourcePlanet;
         this.targetPlanet = targetPlanet;
 
@@ -57,6 +58,8 @@ class Ship {
         this.shootCooldown = Math.random() * 0.4;
         this.laserTarget = null;
         this.laserTimer = 0;
+        this.cachedEnemy = null;
+        this.targetSearchTimer = Math.random() * Ship.SEARCH_INTERVAL;   // staggered so ships don't all search on the same step
 
         this.orbitDir = Math.random() < 0.5 ? 1 : -1;
         this.launchStartAngle = spawnAngle;
@@ -154,7 +157,8 @@ class Ship {
             else need = planet.claimCost + progress;
         } else {
             // The planet heals while ships descend, so aim above its current HP
-            const regenDuringLanding = Math.ceil(this.landingDuration / Planet.REGEN_INTERVAL);
+            const regenInterval = FactionManager.getFaction(planet.owner, gameManager).planetRegenInterval;
+            const regenDuringLanding = Math.ceil(this.landingDuration / regenInterval);
             need = Math.ceil(planet.hp) + regenDuringLanding;
         }
         return need - gameManager.landersFor(planet, this.owner);
@@ -213,6 +217,21 @@ class Ship {
             }
         }
         return nearestEnemy;
+    }
+
+    // Full search only every SEARCH_INTERVAL; in between, reuse the last target while it lives and stays in range
+    findTarget(dt, gameManager) {
+        this.targetSearchTimer -= dt;
+        let e = this.cachedEnemy;
+        if (e && e.dead) { e = this.cachedEnemy = null; this.targetSearchTimer = 0; }
+        if (this.targetSearchTimer > 0) {
+            if (!e) return null;
+            const dx = e.x - this.x, dy = e.y - this.y;
+            return (dx * dx + dy * dy <= this.laserRange * this.laserRange) ? e : null;
+        }
+        this.targetSearchTimer = Ship.SEARCH_INTERVAL;
+        this.cachedEnemy = this.findNearestEnemy(gameManager);
+        return this.cachedEnemy;
     }
 
     // The target always comes from findNearestEnemy, which already checked range and line of sight
@@ -308,7 +327,7 @@ class Ship {
         this.vy = Math.cos(this.orbitAngle) * vCirc * this.orbitDir;
         this.thrustRatio = 0;
 
-        const enemy = this.findNearestEnemy(gameManager);
+        const enemy = this.findTarget(dt, gameManager);
         if (enemy) {
             const aimHeading = Math.atan2(enemy.y - this.y, enemy.x - this.x);
             this.rotateEased(aimHeading, dt);
@@ -334,7 +353,7 @@ class Ship {
         const planet = this.targetPlanet;
 
         if (this.shootCooldown <= 0) {
-            const enemy = this.findNearestEnemy(gameManager);
+            const enemy = this.findTarget(dt, gameManager);
             if (enemy) this.fireLaser(enemy, gameManager);
         }
 
@@ -394,7 +413,7 @@ class Ship {
         const target = this.targetPlanet;
 
         if (this.shootCooldown <= 0) {
-            const enemy = this.findNearestEnemy(gameManager);
+            const enemy = this.findTarget(dt, gameManager);
             if (enemy) this.fireLaser(enemy, gameManager);
         }
 

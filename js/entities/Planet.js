@@ -187,7 +187,7 @@ class Planet {
 
         if (this.owner !== 0) {
             this.updateSpawning(dt, gameManager);
-            this.updateRegen(dt);
+            this.updateRegen(dt, gameManager);
         }
     }
 
@@ -203,13 +203,14 @@ class Planet {
         }
     }
 
-    updateRegen(dt) {
+    updateRegen(dt, gameManager) {
         if (this.hp >= this.maxHp) {
             this.regenTimer = 0;
             return;
         }
         this.regenTimer += dt;
-        if (this.regenTimer >= Planet.REGEN_INTERVAL) {
+        const interval = FactionManager.getFaction(this.owner, gameManager).planetRegenInterval;
+        if (this.regenTimer >= interval) {
             this.regenTimer = 0;
             this.hp = Math.min(this.maxHp, this.hp + 1);
         }

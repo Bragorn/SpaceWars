@@ -50,7 +50,8 @@ const cfg = window.GAME_CONFIG;
 const FIDS = Object.keys(FACTION_DATA);
 const short = (id) => id.slice(0, 3);
 const registry = new MapRegistry();
-const gm = new GameManager();   // AudioManager is never init'ed, so sounds are silent
+const gm = new GameManager();
+gm.headless = true;
 const $ = (id) => document.getElementById(id);
 
 // map dropdown

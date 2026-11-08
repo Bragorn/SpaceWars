@@ -8,6 +8,7 @@ class GameManager {
         this.shipGrid = new Map();
         this.telemetry = new TelemetryCollector();
         this.gameMode = 'PLAYER_VS_CPU';
+        this.headless = false;   // true = skip visual-only work (sim.html sets this)
 
         this.factionMap = {
             0: 'NEUTRAL',
@@ -105,6 +106,7 @@ class GameManager {
     }
 
     spawnExplosion(ship) {
+        if (this.headless) return;
         const count = DEBRIS_MIN + Math.floor(Math.random() * (DEBRIS_MAX - DEBRIS_MIN + 1));
         const debris = [];
         for (let i = 0; i < count; i++) {
